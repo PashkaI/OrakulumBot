@@ -1,0 +1,164 @@
+# Ссылка с моим времением
+base_url = "eyJjaXR5Ijp7ImNpdHkiOiJcdTA0MmRcdTA0M2JcdTA0M2EiLCJjaXR5aWQiOiI4MDM1NyIsInV0YyI6IisxLjAiLCJzdXRjIjoxLCJsbmciOiIyMi4zNjQ2NjI5IiwibGF0IjoiNTMuODI4MDUyOSIsInR6IjoiRXVyb3BlXC9XYXJzYXciLCJnb29nbGVfaWQiOiJDaElKQi1OaE4zLTU0VVlSWWtHQ0ZHb0dRVk0iLCJnZW9uYW1laWQiOiI3NzI2MjEiLCJ1YXV0byI6MX0sInBybyI6IjAiLCJIb3Vyc1R5cGUiOiIwIn0="
+
+Тут будет предварительный перевод :)
+
+help - Get advice on how to operate the robot properly
+today - Show the forecast for today
+
+Based on the Chinese or Tibetan calendar, this robot delivers energy forecasts for a specific time frame.
+
+== Работа со строками ==
+    list1 = list(dict.fromkeys(params))
+    stars = [s.replace('\xa0', ' ').strip().replace('\n', '') for s in list1 if s.strip()]
+
+    message_text1 = '\n'.join(f"{el}" if el != stars[-1] else f"<b>{el}</b>" for el in stars)
+    message_text = '\n'.join(f"{el}" if el not in [stars[-1], stars[0]] else f"   <i>{el}</i>" for el in stars)
+
+Проверка на содержание строки :
+s = "Привет"
+if s.isalpha():
+    print("Yes")
+else:
+    print("No")
+
+
+Создание класса с выполнением и получением по заданным праметрам :
+
+Вы можете описать вашу функцию как метод внутри класса и использовать аргументы метода для определения того,
+какие параметры нужны в данный момент.
+
+Например, вы можете создать класс MyClass, который содержит метод get_params(), который возвращает все 5 параметров,
+и опциональный аргумент params_needed, который принимает список идентификаторов параметров, которые нужны
+в данный момент. Затем вы можете проверить значение аргумента params_needed и вернуть только необходимые параметры.
+
+Вот пример кода:
+class MyClass:
+    def get_params(self, params_needed=None):
+        # Здесь должен быть ваш код, который возвращает 5 параметров
+        # Если params_needed не указан, то возвращаем все параметры
+        if params_needed is None:
+            return param1, param2, param3, param4, param5
+        else:
+            # Возвращаем только запрошенные параметры
+            params = []
+            if 'param1' in params_needed:
+                params.append(param1)
+            if 'param2' in params_needed:
+                params.append(param2)
+            if 'param3' in params_needed:
+                params.append(param3)
+            if 'param4' in params_needed:
+                params.append(param4)
+            if 'param5' in params_needed:
+                params.append(param5)
+            return tuple(params)
+
+Вы можете вызывать метод get_params() с аргументом params_needed, чтобы получить только необходимые параметры. Например:
+
+my_object = MyClass()
+
+# Получить все 5 параметров
+params = my_object.get_params()
+print(params)
+
+# Получить только параметры param1 и param3
+params = my_object.get_params(params_needed=['param1', 'param3'])
+print(params)
+
+# Получить только параметр param5
+params = my_object.get_params(params_needed=['param5'])
+print(params)
+
+В результате выполнения кода выше вы получите только запрошенные параметры.
+
+        # ============================================ Описание для часа на день ======================================================
+        try:
+            if datetime.datetime.now().time() >= datetime.time(22,31) and datetime.datetime.now().time() <= datetime.time(23, 59):
+                dhour = soup.find('div', class_='Content').findAll('td')[-1].text
+            elif datetime.datetime.now().time() >= datetime.time(20,31) and datetime.datetime.now().time() <= datetime.time(22, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-2].text
+            elif datetime.datetime.now().time() >= datetime.time(18,31) and datetime.datetime.now().time() <= datetime.time(20, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-3].text
+            elif datetime.datetime.now().time() >= datetime.time(16,31) and datetime.datetime.now().time() <= datetime.time(18, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-4].text
+            elif datetime.datetime.now().time() >= datetime.time(14,31) and datetime.datetime.now().time() <= datetime.time(16, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-5].text
+            elif datetime.datetime.now().time() >= datetime.time(12,31) and datetime.datetime.now().time() <= datetime.time(14, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-6].text
+            elif datetime.datetime.now().time() >= datetime.time(10,31) and datetime.datetime.now().time() <= datetime.time(12, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-7].text
+            elif datetime.datetime.now().time() >= datetime.time(8,31) and datetime.datetime.now().time() <= datetime.time(10, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-8].text
+            elif datetime.datetime.now().time() >= datetime.time(6,31) and datetime.datetime.now().time() <= datetime.time(8, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-9].text
+            elif datetime.datetime.now().time() >= datetime.time(4,31) and datetime.datetime.now().time() <= datetime.time(6, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-10].text
+            elif datetime.datetime.now().time() >= datetime.time(2,31) and datetime.datetime.now().time() <= datetime.time(4, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-11].text
+            elif datetime.datetime.now().time() >= datetime.time(0,31) and datetime.datetime.now().time() <= datetime.time(2, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-12].text
+            elif datetime.datetime.now().time() >= datetime.time(0,00) and datetime.datetime.now().time() <= datetime.time(0, 30):
+                dhour = soup.find('div', class_='Content').findAll('td')[-13].text
+        except:
+            dhour = ''
+        # ================================================================================================================================
+
+
+
+                                            if collision1: f"- {collision1.strip()}"
+                                            if collision1: f"- {collision1o}"
+                                            if collision2: f"- {collision2.strip()}"
+                                            if collision2o and collision2 and collision2o != sha1o: f"- {collision2o}"
+                                            if sha1: f"- {sha1.strip()}"
+                                           =if sha1o.strip() and not sha2: f"- {sha1o.strip()}"
+                                            if sha2: f"- {sha2}"
+                                            if not sha1o.strip() and sha2o.strip() : f"- {sha2o.strip()}"
+                                            if sha2o and sha2 and sha2o.strip() == sha1o.strip(): f"- {sha2o.strip()}"
+                                            if positive1: f"- {positive1}"
+                                            if positive1o and positive1 and positive1o[:-1] != negativeo: f"- {positive1o}"
+                                            if positive2: f"- {positive2}"
+                                            if positive2o: f"- {positive2o}"
+                                            if symbolMKD: f"- {symbolMKD}"
+                                            if negative: f"- {negative}"
+                                            if negativeo: f"- {negativeo}"
+                                            if not negativeo and negative: f"- {collision1o}"
+
+  @bot.message_handler(commands=['moon'])
+    def moonday(message):
+    my_object = Parsi()
+    params = my_object.pfind(params_needed=['moonday'])
+    bot.send_message(message.chat.id,f'{params}', parse_mode='html')
+
+
+     ===================== Метод, который все функции в scheduler ===================
+     def run_all_functions():
+        Hours()
+        Minutes()
+        Seconds()
+
+    scheduler.add_job(run_all_functions, 'cron', hour=7, minute=10)
+    ====================================================================================
+
+    https://github.com/PashkaI/OrakulumBot.git
+    ---------------------------------------------------
+    echo "# OrakulumBot" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/PashkaI/OrakulumBot.git
+git push -u origin main
+-------------------------------------------------------------------
+git remote add origin https://github.com/PashkaI/OrakulumBot.git
+git branch -M main
+git push -u origin main
+
+
+
+
+
+
+
+
+
