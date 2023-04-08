@@ -11,10 +11,17 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 bot = telebot.TeleBot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
 
+presentday = datetime.date.today()
+yesterday = presentday - datetime.timedelta(days=1)
+tomorrow = presentday + datetime.timedelta(days=1)
+
 scheduler = BackgroundScheduler()
 moon = ''
 hours = ''
-content = ''
+content_today = ''
+content_yesterday = ''
+content_tomorrow = ''
+
 
 # ================= Описание для часа на день ====================
 def DayAnimals(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
@@ -78,17 +85,27 @@ def MoonDay(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
     except:
         moon = ''
     return moon
-scheduler.add_job(MoonDay, 'cron', hour=9, minute=31)
+scheduler.add_job(MoonDay, 'cron', hour=10, minute=38)
 
-# ============== Описание на текущий день и символы со звёздами ==============
-def StarsDay(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
-    global content
-    url = f"https://www.mingli.ru/{data_url}"
+# ============== Выгрузка прогнозов на три дня со звёздами ==============
+def StarsDay(data_url):
+    global content_today, content_yesterday, content_tomorrow
+    url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
     soup = BeautifulSoup(requests.get(url).text, 'html.parser')
     content = soup.find('div', class_='Content').find('div', class_='firstInfo')
+    # записываем данные в нужную переменную
+    if data_url == presentday:
+        content_today = content
+    elif data_url == yesterday:
+        content_yesterday = content
+    elif data_url == tomorrow:
+        content_tomorrow = content
     return content
-scheduler.add_job(StarsDay, 'cron', hour=8, minute=47)
 
+#-------------------------------------------------------------------------
+scheduler.add_job(StarsDay, 'cron', hour=7, minute=8, second=30, args=[presentday])
+scheduler.add_job(StarsDay, 'cron', hour=7, minute=8, second=40, args=[yesterday])
+scheduler.add_job(StarsDay, 'cron', hour=7, minute=8, second=50, args=[tomorrow])
 # ============== Описание для двухчасовок ==============================
 def Hours(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
     global hours
@@ -96,8 +113,8 @@ def Hours(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
     soup = BeautifulSoup(requests.get(url).text, 'html.parser')
     hours = soup.find('div', class_='Content').findAll('td')[-5]
     return hours
-scheduler.add_job(Hours, 'cron', hour=7, minute=2)
-
+scheduler.add_job(Hours, 'cron', hour=8, minute=3)
+#scheduler.start()
 
 # ============== Обработка запросов по коммандам Бота =================================================================
 @bot.message_handler(commands=['start'])
@@ -141,13 +158,18 @@ def allusers(message):
 @bot.message_handler(commands=['profile'])
 def profile(message):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
+    btn1 = types.InlineKeyboardButton('📍 Украина', callback_data='Ukr')
+    btn2 = types.InlineKeyboardButton('📍 Польша', callback_data='888')
+    btn3 = types.InlineKeyboardButton('️️📍 США', callback_data='888')
+    markup.row(btn1, btn2, btn3)
+
+    #markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
     bot.send_message(message.chat.id,   f'\n👤  <b>Профиль пользователя</b>'
                                         f'\n-------------------------------'
                                         f'\nВы зарегистрированы в системе под именем : {message.from_user.first_name}.'
-                                        f' Для точных прогнозов нужна информация для определения точной даты и времени.'
-                                        f' В зависимости от вашего местоположения бот скорректирует свои часы'
-                                        # f'\n Для этого надо нажать кнопку  📍 <b>Геоданные</b>'
+                                        f' Для точных прогнозов нужна информация для определения точной даты и времени,'
+                                        f' в зависимости от вашего местоположения бот скорректирует свои часы'
+                                        f'\n Выберите вашу <b>📍страну</b> из списка ниже : '
                                         # f'\nТекущая дата и время <b> /location </b>'
                                         f'\nПриятного пользования'
                           ,reply_markup=markup, parse_mode='html')
@@ -167,10 +189,63 @@ def send_moon_to_user(chat_id):
 @bot.message_handler(commands=['mooner'])
 def mooner(message):
     send_moon_to_user(message.chat.id)
-scheduler.add_job(send_moon_to_user, 'cron', hour=9, minute=32, args=[237863350])
+scheduler.add_job(send_moon_to_user, 'cron', hour=8, minute=5, args=[237863350])
 
 # ========================================================================================================
+#        Постараюсь описать тут свою функцию по проверке на дату и её работу
+# ========================================================================================================
+def send_day(chat_id):
+    waitfor = bot.send_message(chat_id, 'Ожидайте загрузки ... ⌛️')
+    try:
+        DSymbol = content_today.find('h5', class_='CzjanChu').text
+    except:
+        DSymbol = ''
+    try:
+        DSymbolo = content_today.find('p', class_='CzjanChu').text
+    except:
+        DSymbolo = ''
+    try:
+        DayPlus = content_yesterday.find('h5', class_='CzjanChu').text
+    except:
+        DayPlus = ''
+    try:
+        DayMinus = content_tomorrow.find('h5', class_='CzjanChu').text
+    except:
+        DayMinus = ''
+    try:
+        DMoon = content_today.find('div', class_='MoonDay').text
+    except:
+        DMoon = ''
 
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton('↩️  Назад', callback_data='back')
+    btn2 = types.InlineKeyboardButton('🔎  Час на сейчас', callback_data='hour')
+    markup.row(btn1, btn2)
+    bot.edit_message_text(f'\n 📅  <b>Сегодня :   {datetime.datetime.now().strftime("%d")}-'
+                                        f'{datetime.datetime.now().strftime("%m")}-'
+                                        f'{datetime.datetime.now().strftime("%Y")}</b>'
+                                        f'\n-------------------------------'
+                                        f'\n  - <b><u> {DSymbol}</u></b>'
+                                        f'\n   -  {DSymbolo}'
+                                        f'\n -------------------------------------'
+                                        f'\n  ✅ -  {DayPlus}'
+                                        f'\n  ⛔️ -  {DayMinus}'
+                                        f'\n -------------------------------------'
+                                        f'\n{str(DMoon).strip()}'
+                                        f'\n{presentday}'
+                          , chat_id=waitfor.chat.id, message_id=waitfor.message_id
+                          , reply_markup=markup, parse_mode='html')
+@bot.message_handler(commands=['polday'])
+def polday(message):
+    send_day(message.chat.id)
+
+# ========================================================================================================
+#                                   Шедулеры тут будут
+# ========================================================================================================
+
+scheduler.add_job(send_day, 'cron', hour=12, minute=23, args=[237863350])
+scheduler.start()
+# ========================================================================================================
 
 @bot.message_handler(commands=['main'])
 def main(message):
@@ -197,14 +272,6 @@ def main(message):
 def send_time(message):
     current_time = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") # получаем текущую дату и время и форматируем ее в строку
     bot.reply_to(message, f"Выгрузка по времени ТЕСТ: {current_time}") # отправляем сообщение с текущей датой и временем
-
-@bot.message_handler(commands=['test1'])
-def send_time1():
-    current_time = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-    bot.send_message(chat_id=237863350, text=f"Информация выгружена: {current_time}")
-
-scheduler.add_job(send_time1, 'cron', hour=10, minute=00)
-scheduler.start()
 
 @bot.message_handler(commands=['test'])
 def test(message):
@@ -495,11 +562,20 @@ def daytimes(message):
                          f' {f"{SymbolStars3}" if SymbolStars3 else ""}'
                          ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
 
-@bot.callback_query_handler(func=lambda callback: True) # Обработка Запросов Callback =====================================================
+# ========================================================================================================
+#                       Обработка  Запросов  Callback
+# ========================================================================================================
+@bot.callback_query_handler(func=lambda callback: True)
 def callback_message(callback):
     if callback.data == 'today':
         today(callback.message)
         bot.delete_message(callback.message.chat.id, callback.message.message_id)
+
+
+    #elif callback.data == 'Ukr':
+
+
+
 
     elif callback.data == 'hours':
         markup = types.InlineKeyboardMarkup()
