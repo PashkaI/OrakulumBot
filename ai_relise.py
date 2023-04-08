@@ -7,6 +7,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 bot = Bot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
 dp = Dispatcher(bot)
+def get_now():
+    return datetime.datetime.now()
 def get_today():
     return datetime.date.today()
 def get_yesterday():
@@ -70,6 +72,29 @@ async def main(message):
                                         f'\nДля корректировки времени нажми '
                                         f'\nНа  <b>Страну</b> где ты есть'
                                         ,parse_mode='html', reply_markup=markup)
+@dp.message_handler(commands=['test'])
+async def maintest(message):
+    now = get_now()
+    name = message.from_user.first_name
+    usertime = message.date
+    nameid = message.from_user.id
+    conn = sqlite3.connect('testdata.sql')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+    existing_record = cur.fetchone()
+    if existing_record:
+        strana = existing_record[-1]
+        timedelta = usertime + datetime.timedelta(hours=strana)
+    cur.close()
+    conn.close()
+    await message.answer(               f'Привет, <b>{name}.</b> '
+                                        f'\n==Из message user=='
+                                        f'\n  <b>{usertime}</b>'
+                                        f'\n==Переменная  Now =='
+                                        f'\n  <b>{now.strftime("%d-%m-%Y  %H:%M")}</b>'
+                                        f'\n=================='
+                                        f'\n  <b>{timedelta}</b>'
+                                        ,parse_mode='html')
 
 @dp.message_handler(commands=['show_me_the_users'])
 async def allusers(message):
@@ -85,16 +110,31 @@ async def allusers(message):
     #await bot.send_message(chat_id=237863350, text=info)
 @dp.message_handler(commands=['time'])
 async def send_time(message):
-    today = get_today()
-    test = MoonDay(today)
-    print(today)
-    print(test)
+    usertime = message.date
+    nameid = message.from_user.id
+    conn = sqlite3.connect('testdata.sql')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+    existing_record = cur.fetchone()
+    if existing_record:
+        strana = existing_record[-1]
+        timedelta = usertime + datetime.timedelta(hours=strana)
+    cur.close()
+    conn.close()
+    if timedelta.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): test = moon_today  #test = MoonDay(get_today())
+    if timedelta.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): test = moon_tomorrow  #test = MoonDay(get_tomorrow())
+    if timedelta.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): test = moon_yesterday  #test = MoonDay(get_yesterday())
+    # print(timedelta.strftime('%d-%m-%Y'))
+    # print(get_today().strftime('%d-%m-%Y'))
+    # print(get_tomorrow().strftime('%d-%m-%Y'))
+    # today = get_today()
+    # test = MoonDay(today)
+    # print(today)
+    # print(test)
     current_time = datetime.datetime.now() # получаем текущую дату и время и форматируем ее в строку
-    await message.answer(f"Сейчас   : {current_time.strftime('%d-%m-%Y  %H:%M')}"
-                         f"\nВчера   : {(current_time - datetime.timedelta(days=1)).strftime('%d-%m-%Y')}"
-                         f"\nЗавтра  : {(current_time + datetime.timedelta(days=1)).strftime('%d-%m-%Y')}"
+    await message.answer(f"Время сервера : {current_time.strftime('%d-%m-%Y  %H:%M')}"
                          f"\n================================"
-                         f"\nToday :  {get_today().strftime('%d-%m-%Y  %H:%M:%S')}"
+                         f"\nВаше время  : {timedelta.strftime('%d-%m-%Y  %H:%M')}"
                          f"\n================================"
                          f"\nToday :  {test}"
                          )
@@ -140,20 +180,7 @@ async def callback(call):
                                     reply_markup=markup)
     elif call.data == 'Ukr':
         nameid = call.from_user.id
-        conn = sqlite3.connect('testdata.sql')
-        cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
-        existing_record = cur.fetchone()
-        if existing_record:
-            # Обновляем запись в базе данных
-            cur.execute("UPDATE users SET strana = ? WHERE pass = ?", (2, nameid))
-            conn.commit()
-            await bot.send_message(call.message.chat.id, 'Вы выбрали Украина UTC+2')
-        cur.close()
-        conn.close()
-
-    elif call.data == 'Pol':
-        nameid = call.from_user.id
+        usertime = call.message.date
         conn = sqlite3.connect('testdata.sql')
         cur = conn.cursor()
         cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
@@ -162,16 +189,53 @@ async def callback(call):
             # Обновляем запись в базе данных
             cur.execute("UPDATE users SET strana = ? WHERE pass = ?", (1, nameid))
             conn.commit()
-            await bot.send_message(call.message.chat.id, 'Вы выбрали Польша UTC+1')
-        cur.close()
-        conn.close()
+            cur.close()
+            conn.close()
+            strana = existing_record[-1]
+            timedelta = usertime + datetime.timedelta(hours=strana)
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Украина UTC+2\n{timedelta}')
 
-# if __name__ == '__main__':
-#     today = get_today()
-#     MoonDay(today)
-#     yesterday = get_yesterday()
-#     MoonDay(yesterday)
-#     tomorrow = get_tomorrow()
-#     MoonDay(tomorrow)
+    elif call.data == 'Pol':
+        nameid = call.from_user.id
+        usertime = call.message.date
+        conn = sqlite3.connect('testdata.sql')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+        existing_record = cur.fetchone()
+        if existing_record:
+            # Обновляем запись в базе данных
+            cur.execute("UPDATE users SET strana = ? WHERE pass = ?", (0, nameid))
+            conn.commit()
+            cur.close()
+            conn.close()
+            strana = existing_record[-1]
+            timedelta = usertime + datetime.timedelta(hours=strana)
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Польша UTC+1\n{timedelta}')
+
+    elif call.data == 'Usa':
+        nameid = call.from_user.id
+        usertime = call.message.date
+        conn = sqlite3.connect('testdata.sql')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+        existing_record = cur.fetchone()
+        if existing_record:
+            # Обновляем запись в базе данных
+            cur.execute("UPDATE users SET strana = ? WHERE pass = ?", (-6, nameid))
+            conn.commit()
+            cur.close()
+            conn.close()
+            strana = existing_record[-1]
+            timedelta = usertime + datetime.timedelta(hours=strana)
+        await bot.send_message(call.message.chat.id, f'Вы выбрали США UTC-4\n{timedelta}')
+
+
+if __name__ == '__main__':
+    today = get_today()
+    MoonDay(today)
+    yesterday = get_yesterday()
+    MoonDay(yesterday)
+    tomorrow = get_tomorrow()
+    MoonDay(tomorrow)
 
 executor.start_polling(dp)
