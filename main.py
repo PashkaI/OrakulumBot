@@ -1,150 +1,183 @@
-import telebot
-import webbrowser
-from telebot import types
+from aiogram import Bot, Dispatcher, executor, types
 import datetime
-from mingli import Parsi
+import time
+import requests
+import sqlite3
+from bs4 import BeautifulSoup, Comment
+from apscheduler.schedulers.background import BackgroundScheduler
+import subprocess
 
-bot = telebot.TeleBot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
-my_object = Parsi()
+bot = Bot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
+dp = Dispatcher(bot)
 
-@bot.message_handler(commands=['start', 'hello'])
-def main(message):
-    bot.send_message(message.chat.id, f'Привет, <b>{message.from_user.first_name}.</b> '
-                                      f'\nТвой ID: , {message.from_user.id} '
-                                      f'\nДля получения справки введи команду <b> /help </b>'
-                                      f'\nГлавное меню <b> /main </b>'
-                                      f'\nПрогноз на день <b> /day </b>'
-                                      f'\nПрогноз на Час <b> /hour </b>'
-                                      f'\nЛунный прогноз на день <b> /moon </b>'
-                                      f'\nCимволы дня и летящие звёзды <b> /stars </b>'
-                                      f'\nПрофиль пользователя <b> /profile </b>'
-                                      f'\nТекущая дата и время <b> /time </b>'
-                     ,parse_mode='html')
+def restart_bot():  # Перезапускаем бота
+    subprocess.Popen(['python', 'main.py'])
+
+#  ============= Узнаём время на сегодня, завтра и вчера =============
+def get_today():
+    return datetime.datetime.now()
+def get_yesterday():
+    return datetime.datetime.now() - datetime.timedelta(days=1)
+def get_tomorrow():
+    return datetime.datetime.now() + datetime.timedelta(days=1)
+
+scheduler = BackgroundScheduler()
+content_today = ''
+content_yesterday = ''
+content_tomorrow = ''
+
+#======== Вытягиваем значений ============
+def MoonDay(data_url):
+    global content_today, content_yesterday, content_tomorrow
+    url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
+    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
+    try:# Вытягиваем контент с сайта
+        content = soup.find('div', class_='Content')
+    except:
+        content = ''
+    # записываем данные в нужную переменную
+
+    if data_url.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'):
+        content_yesterday = content
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_yesterday.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+    elif data_url.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'):
+        content_today = content
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_today.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+    elif data_url.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'):
+        content_tomorrow = content
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_tomorrow.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+    print(data_url.strftime('%d-%m-%Y'))
+    # return moon
+def Printersimbols():
+    print('=======================================================')
 
 
-@bot.message_handler(commands=['main'])
-def main(message):
+
+#======== Обработка Шедулеров ============
+
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=30, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=40, args=[get_tomorrow()])
+scheduler.add_job(Printersimbols, 'cron', hour=0, minute=0, second=45)
+
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=30, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=40, args=[get_tomorrow()])
+scheduler.add_job(Printersimbols, 'cron', hour=0, minute=1, second=45)
+
+# Запуск бота каждый день в 3 часа ночи
+scheduler.add_job(restart_bot, 'cron', hour=12, minute=42)
+
+scheduler.start()
+
+# =================== Определяем время пользователя ======================
+def timedelta(nameid):
+    usertime = datetime.datetime.now()
+    conn = sqlite3.connect('testdata.sql')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+    existing_record = cur.fetchone()
+    if existing_record:
+        utc = existing_record[-2]
+        timedelta = usertime + datetime.timedelta(hours=utc)
+    cur.close()
+    conn.close()
+    return timedelta
+
+
+# ============== Обработка запросов по командам Бота ========================
+@dp.message_handler(commands=['start'])
+async def main(message):
+    name = message.from_user.first_name
+    nameid = message.from_user.id
+    conn = sqlite3.connect('testdata.sql')                      # utc INTEGER
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE IF NOT EXISTS users (id int auto_increment primary key, name varchar(50), '
+                'pass varchar(50), utc integer, alarm varchar(8))')
+    cur.execute("SELECT * FROM users WHERE name=? AND pass=?", (name, nameid))
+    existing_record = cur.fetchone()
+    if existing_record:
+        await message.answer( "Приветствую тебя снова")
+    else:
+        cur.execute("INSERT INTO users (name, pass) VALUES (?, ?)", (name, nameid))
+        conn.commit()
+        #bot.send_message(message.chat.id, "Запись успешно добавлена.")   .from_user.first_name
+    cur.close()
+    conn.close()
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton('📍 Украина', callback_data='Ukr')
+    btn2 = types.InlineKeyboardButton('📍 Польша', callback_data='Pol')
+    btn3 = types.InlineKeyboardButton('️️📍 США', callback_data='Usa')
+    markup.row(btn1, btn2, btn3)
+    await message.answer(               f'Привет, <b>{name}.</b> '
+                                        f'\nДобро пожаловать в сообщество эзотериков :)'
+                                        f'\nНадеюсь что описание программы ты уже прочитал.'
+                                        f' Если нет, то воспользуйся командой <b> /help </b>'
+                                        f'\nДля более точных прогнозов необходимо скорректировать'
+                                        f' время в программе -  для этого нажми '
+                                        f'на  <b>Страну</b> где ты есть'
+                                        ,parse_mode='html', reply_markup=markup)
+
+@dp.message_handler(commands=['show_me_the_users'])
+async def allusers(message):
+    conn = sqlite3.connect('testdata.sql')
+    cur = conn.cursor()
+    cur.execute('SELECT * FROM users')
+    users = cur.fetchall()
+    info = ''
+    for el in users: info += f'Name: {el[1]}, ID:{el[2]}, utc:{el[3]}\n'
+    cur.execute("SELECT COUNT(*) FROM users")
+    count = cur.fetchone()[0]
+    cur.close()
+    conn.close()
+    await message.answer(f'{count}\n{info}')
+    # await bot.send_message(chat_id=237863350, text=info)
+    # await bot.send_message(chat_id=678537666, text='Привет Татьяна. Как твои дела?')
+
+@dp.message_handler(commands=['main'])
+async def main(message):
     markup = types.InlineKeyboardMarkup()
     btn1 = types.InlineKeyboardButton('📅  Показать прогноз на сегодня', callback_data='today')
     markup.row(btn1)
     btn2 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
     btn3 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
     markup.row(btn2, btn3)
-    btn4 = types.InlineKeyboardButton('🔎  На час', callback_data='hour')
+    btn4 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
     btn5 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
     markup.row(btn4, btn5)
-
-    bot.send_message(message.chat.id, f'\n💡  <b>Меню</b>'
+    await message.answer(             f'\n💡  <b>Меню</b>'
                                       f'\n  ------------'
                                       f'\n  Быстрое использование всех команд бота.'
                                       f'\nПрогноз на день или на час по китайскому календарю.'
                                       f' Показать лунный прогноз на день и узнать символ дня.'
-                                      f'\nВывод справичной информации.'
-
+                                      f'\nВывод справочной информации.'
                                     ,reply_markup=markup, parse_mode='html')
 
-@bot.callback_query_handler(func=lambda callback: True) # Обработка Запросов Callback =====================================================
-def callback_message(callback):
-    if callback.data == 'today':
-        today(callback.message)
-        bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        # params = my_object.pfind(params_needed=['DSymbol', 'DSymbolo', 'DayPlus', 'DayMinus', 'DMoon'])
-        # DSymbol = str(params[0]).strip()
-        # DSymbolo = str(params[1]).strip()
-        # DayPlus = str(params[2]).strip()
-        # DayMinus = str(params[3]).strip()
-        # DMoon = str(params[4]).strip()
-        #
-        # markup = types.InlineKeyboardMarkup()
-        # btn1 = types.InlineKeyboardButton('↩️  Назад', callback_data='back')
-        # btn2 = types.InlineKeyboardButton('🔎  На Час', callback_data='hour')
-        # markup.row(btn1, btn2)
-        # bot.edit_message_text(          f'\n  - 📅 <b>Сегодня :   {datetime.datetime.now().strftime("%d")}-{datetime.datetime.now().strftime("%m")}-{datetime.datetime.now().strftime("%Y")}</b>'
-        #                                 f'\n  - <b><u> {DSymbol}</u></b>'
-        #                                 f'\n   -  {DSymbolo}'
-        #                                 f'\n  -------------------------------------'
-        #                                 f'\n  ✅ -  {DayPlus}'
-        #                                 f'\n  ⛔️ -  {DayMinus}'
-        #                                 f'\n  -------------------------------------'
-        #                                 f'\n{DMoon}'
-        #                  ,callback.message.chat.id, callback.message.message_id, parse_mode='html', reply_markup=markup)
+@dp.message_handler(commands=['time'])
+async def maintest(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    #nameid = message.from_user.id
+    await message.answer(
+        f'<b><u>Проверка времени :</u></b>'
+        f'\n-- Сейчас на сервере --'
+        f'\n  <b>{get_today().strftime("%d-%m-%Y  %H:%M")}</b>'
+        f'\n-- Твоё текущее время --'
+        f'\n  <b>{timedelta(nameid).strftime("%d-%m-%Y  %H:%M")}</b>'
+        ,parse_mode='html')
 
 
-    elif callback.data == 'back':
-        # main(callback.message)
-        # bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        markup = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton('📅  Показать прогноз на сегодня', callback_data='today')
-        markup.row(btn1)
-        btn2 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
-        btn3 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
-        markup.row(btn2, btn3)
-        btn4 = types.InlineKeyboardButton('🔎  На час', callback_data='hour')
-        btn5 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
-        markup.row(btn4, btn5)
-        bot.edit_message_text(        f'\n💡  <b>Меню</b>'
-                                      f'\n  ------------'
-                                      f'\n  Быстрое использование всех команд бота.'
-                                      f'\nПрогноз на день или на час по китайскому календарю.'
-                                      f' Показать лунный прогноз на день и узнать символ дня.'
-                                      f'\nВывод справичной информации.'
-                         ,callback.message.chat.id, callback.message.message_id, parse_mode='html', reply_markup=markup)
-
-
-    elif callback.data == 'help':
-        help(callback.message)
-        bot.delete_message(callback.message.chat.id, callback.message.message_id)
-
-    elif callback.data == 'moon':
-        moonday(callback.message)
-        bot.delete_message(callback.message.chat.id, callback.message.message_id)
-
-    elif callback.data == 'hour':
-        daytimes(callback.message)
-        bot.delete_message(callback.message.chat.id, callback.message.message_id)
-
-    elif callback.data == 'stars':
-        stars(callback.message)
-        bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        #moonday(callback.message)
-
-        # params = my_object.pfind(params_needed=['moonday'])
-        # markup = types.InlineKeyboardMarkup()
-        # markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
-        # bot.edit_message_text(          f'\n  🌓 <b><u> Прогноз Луны </u></b>'
-        #                                 f'\n   {params}'
-        #                  ,callback.message.chat.id, callback.message.message_id, parse_mode='html', reply_markup=markup)
-
-#======================================Конец блока для CallBack ========================================================
-
-@bot.message_handler(commands=['moon'])
-def moonday(message):
-    waitfor = bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
-    params = my_object.pfind(params_needed=['moonday'])
-    #moon = str(params[0]).strip()
+@dp.message_handler(commands=['help'])
+async def help(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
-    bot.edit_message_text(              f'\n  🌓 <b> Лунный прогноз на день </b>'
-                                        f'\n  --------------------------------'
-                                        f'\n   {params}'
-                          ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
-
-@bot.message_handler(commands=['time'])
-def send_welcome(message):
-    current_time = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S") # получаем текущую дату и время и форматируем ее в строку
-    bot.reply_to(message, f"Текущая дата и время: {current_time}") # отправляем сообщение с текущей датой и временем
-
-@bot.message_handler(commands=['help'])
-def help(message):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
-    bot.send_message(message.chat.id,   f'\n🔹  <b>Основные команды</b>'
+    await message.answer(               f'\n🔹  <b>Основные команды</b>'
                                         f'\n'
                                         f'\nГлавное меню <b> /main </b>'
                                         f'\nПрогноз на день <b> /day </b>'
                                         f'\nПрогноз на Час <b> /hour </b>'
                                         f'\nЛунный прогноз на день <b> /moon </b>'
-                                        f'\nCимволы дня и летящие звёзды <b> /stars </b>'
+                                        f'\nCимволы дня по звёздам<b> /stars </b>'
                                         f'\nПрофиль пользователя <b> /profile </b>'
                                         f'\nТекущая дата и время <b> /time </b>'
                                         f'\n'
@@ -153,47 +186,100 @@ def help(message):
                                         f'\nРобот выводит прогноз на день или на час по китайскому календарю.'
                                         f' А так же можно посмотреть лунный прогноз на день и символ дня.'
                                         f' В будущем возможно ещё сделаю вывод информации по Тибетским праздникам.'
+                                        f'\n  --------------------------------'
+                                        f'\n📅 Для того чтобы посмотреть прогноз на нужную вам дату, её необходимо'
+                                        f' ввести в чате бота в формате DD-MM-YYYY (Например: 17-03-2023).'
+                                        f'\n  --------------------------------'
+                                        f'\n⏱ Сделать корректировку времени можно в профиле пользователя'
                                         f'\n'
                                         f'\nПо работе бота писать: @Rts_support'
                           ,reply_markup=markup, parse_mode='html')
 
-@bot.message_handler(commands=['site'])
-def site(message):
-    webbrowser.open('https://google.com')
+@dp.message_handler(commands=['profile'])
+async def profile(message):
+    name = message.from_user.first_name
+    nameid = message.from_user.id
+    conn = sqlite3.connect('testdata.sql')                      # utc INTEGER
+    cur = conn.cursor()
+    cur.execute('CREATE TABLE IF NOT EXISTS users (id int auto_increment primary key, name varchar(50), '
+                'pass varchar(50), utc integer, alarm varchar(8))')
+    cur.execute("SELECT * FROM users WHERE name=? AND pass=?", (name, nameid))
+    existing_record = cur.fetchone()
+    if not existing_record:
+        cur.execute("INSERT INTO users (name, pass) VALUES (?, ?)", (name, nameid))
+        conn.commit()
+        #bot.send_message(message.chat.id, "Запись успешно добавлена.")   .from_user.first_name
+    cur.close()
+    conn.close()
+    markup = types.InlineKeyboardMarkup()
+    btn1 = types.InlineKeyboardButton('📍 Украина', callback_data='Ukr')
+    btn2 = types.InlineKeyboardButton('📍 Польша', callback_data='Pol')
+    btn3 = types.InlineKeyboardButton('️️📍 США', callback_data='Usa')
+    markup.row(btn1, btn2, btn3)
+    btn4 = types.InlineKeyboardButton('↩️  Назад', callback_data='back')
+    markup.row(btn4)
+    await message.answer(               f'\n👤  <b>Профиль пользователя</b>'
+                                        f'\n-------------------------------'
+                                        f'\nВы зарегистрированы в системе под именем : {name}.'
+                                        f' Для точных прогнозов нужна информация для определения точной даты и времени,'
+                                        f' в зависимости от вашего местоположения бот скорректирует свои часы'
+                                        f'\n Выберите вашу <b>📍страну</b> из списка ниже : '
+                                        # f'\nТекущая дата и время <b> /location </b>'
+                                        f'\nПриятного пользования'
+                          ,reply_markup=markup, parse_mode='html')
 
+@dp.message_handler(commands=['moon'])
+async def moonday(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
 
-@bot.message_handler(commands=['day'])
-def today(message):
-    waitfor = bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
-    params = my_object.pfind(params_needed=['Content'])
+    moon = content.find('div', class_='firstInfo').find('div', class_='MoonDay') \
+                      .find_all(string=lambda text: isinstance(text, Comment))[1].split('DNone">')[1][:-13]
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
+    await message.answer(              f'\n  🌓 <b> Лунный прогноз на день </b>'
+                                        f'\n  --------------------------------'
+                                        f'\n   {moon}'
+                          ,reply_markup=markup, parse_mode='html')
+
+@dp.message_handler(commands=['day'])
+async def day(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
+
     try:
-        DSymbol = params.find('h5', class_='CzjanChu').text
+        DSymbol = content.find('h5', class_='CzjanChu').text
     except:
         DSymbol = ''
     try:
-        DSymbolo = params.find('p', class_='CzjanChu').text
+        DSymbolo = content.find('p', class_='CzjanChu').text
     except:
         DSymbolo = ''
     try:
-        DayPlus = params.find('p', class_='PlusMinus').text
+        DayPlus = content.find('p', class_='PlusMinus').text
     except:
         DayPlus = ''
     try:
-        DayMinus = params.findAll('p', class_='PlusMinus')[1].text
+        DayMinus = content.findAll('p', class_='PlusMinus')[1].text
     except:
         DayMinus = ''
     try:
-        DMoon = params.find('div', class_='MoonDay').text
+        DMoon = content.find('div', class_='MoonDay').text
     except:
         DMoon = ''
 
     markup = types.InlineKeyboardMarkup()
     btn1 = types.InlineKeyboardButton('↩️  Назад', callback_data='back')
-    btn2 = types.InlineKeyboardButton('🔎  На Час', callback_data='hour')
+    btn2 = types.InlineKeyboardButton('🔎  Час на сейчас', callback_data='hour')
     markup.row(btn1, btn2)
-    bot.edit_message_text(              f'\n 📅  <b>Сегодня :   {datetime.datetime.now().strftime("%d")}-'
-                                        f'{datetime.datetime.now().strftime("%m")}-'
-                                        f'{datetime.datetime.now().strftime("%Y")}</b>'
+    await message.answer(               f'\n 📅  <b>Сегодня :   {timedelta(nameid).strftime("%d-%m-%Y")}</b>'
                                         f'\n-------------------------------'
                                         f'\n  - <b><u> {DSymbol}</u></b>'
                                         f'\n   -  {DSymbolo}'
@@ -202,70 +288,74 @@ def today(message):
                                         f'\n  ⛔️ -  {DayMinus}'
                                         f'\n -------------------------------------'
                                         f'\n{str(DMoon).strip()}'
-                                    ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
+                                    ,reply_markup=markup, parse_mode='html')
 
-@bot.message_handler(commands=['stars'])
-def stars(message):
-    waitfor = bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
-    params = my_object.pfind(params_needed=['Content'])
+@dp.message_handler(commands=['stars'])
+async def stars(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
+
     try:  # Разрушитель года или месяца (Надо подставить слово "Разрушитель")
-        collision1 = params.find('h5', class_='red Collision').text  # .split()[-1]
+        collision1 = content.find('h5', class_='red Collision').text  # .split()[-1]
     except:
         collision1 = ''
     try:  # Описание для Разрушителя.
-        collision1o = params.findAll('p')[4].text
+        collision1o = content.findAll('p')[4].text
     except:
         collision1o = ''
     try:  # Второй Разрушитель, если есть первый года или месяца (Надо подставить слово "Разрушитель")
-        collision2 = params.findAll('h5', class_='red Collision')[1].text  # .split()[-1]
+        collision2 = content.findAll('h5', class_='red Collision')[1].text  # .split()[-1]
     except:
         collision2 = ''
     try:  # Описание для Разрушителя.
-        collision2o = params.findAll('p')[5].text
+        collision2o = content.findAll('p')[5].text
     except:
         collision2o = ''
     try:  # Красное ША года
-        sha1 = params.find('h5', class_='red Sha').text
+        sha1 = content.find('h5', class_='red Sha').text
     except:
         sha1 = ''
     try:  # Описание для ША
-        sha1o = params.find('p', class_='Sha').text
+        sha1o = content.find('p', class_='Sha').text
     except:
         sha1o = ''
     try:  # Красное второе ША года
-        sha2 = params.findAll('h5', class_='red Sha')[1].text
+        sha2 = content.findAll('h5', class_='red Sha')[1].text
     except:
         sha2 = ''
     try:  # Описание для ША
-        sha2o = params.findAll('p', class_='Sha')[1].text
+        sha2o = content.findAll('p', class_='Sha')[1].text
     except:
         sha2o = ''
     try:  # Позитивный символ для Звезды
-        positive1 = params.find('h5', class_='positive SymbolStars').text  # оставить
+        positive1 = content.find('h5', class_='positive SymbolStars').text  # оставить
     except:
         positive1 = ''
     try:  # Описание позитивного символа
-        positive1o = params.find('p', class_='SymbolStars').text
+        positive1o = content.find('p', class_='SymbolStars').text
     except:
         positive1o = ''
     try:  # Позитивный второй символ для Звезды
-        positive2 = params.findAll('h5', class_='positive SymbolStars')[1].text
+        positive2 = content.findAll('h5', class_='positive SymbolStars')[1].text
     except:
         positive2 = ''
     try:  # Описание второго позитивного символа
-        positive2o = params.findAll('p', class_='SymbolStars')[2].text
+        positive2o = content.findAll('p', class_='SymbolStars')[2].text
     except:
         positive2o = ''
     try:  # Символ MKD
-        symbolMKD = params.find('div', class_='SymbolStars MKD').text
+        symbolMKD = content.find('div', class_='SymbolStars MKD').text
     except:
         symbolMKD = ''
     try:  # Негативный символ для Звезды
-        negative = params.find('h5', class_='negative SymbolStars').text
+        negative = content.find('h5', class_='negative SymbolStars').text
     except:
         negative = ''
     try:  # Описание негативного символа
-        negativeo = params.findAll('p', class_='SymbolStars')[1].text
+        negativeo = content.findAll('p', class_='SymbolStars')[1].text
     except:
         negativeo = ''
 
@@ -292,13 +382,12 @@ def stars(message):
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
 
     if not stars:
-        bot.edit_message_text(
-                         f'\n ⭐️<b><u> Cимволы дня и летящие звёзды </u></b>'
-                         f'\n---------------------------------------'
-                         f'\n Сегодня нет информации'
-                         ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
+        await message.answer(f'\n ⭐️<b><u> Cимволы дня и летящие звёзды </u></b>'
+                                         f'\n---------------------------------------'
+                                         f'\n Сегодня нет информации'
+                                    ,reply_markup=markup, parse_mode='html')
     else:
-        bot.edit_message_text(
+        await message.answer(
                          f'\n ⭐️<b> Cимволы дня и летящие звёзды </b>'
                          f'\n---------------------------------------'
                          f' {f"<b>{collision1}</b>" if collision1 else ""}'
@@ -318,19 +407,80 @@ def stars(message):
                          f' {f"<b>{negative}</b>" if negative else ""}'
                          f' {f"{negativeo}" if negativeo else ""}'
                          f' {f"{collision1o}" if not negativeo and negative else ""}'
-                         ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
+            ,reply_markup=markup, parse_mode='html')
 
-@bot.message_handler(commands=['hour'])
-def daytimes(message):
-    waitfor = bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
-    params = my_object.pfind(params_needed=['DayHour'])
-    animails = my_object.pfind(params_needed=['Animals'])
+@dp.message_handler(commands=['hour'])
+async def daytimes(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
+
+    DayHour = ''
+    Animals = ''
+    try:
+        if timedelta(nameid).time() >= datetime.time(23, 1) \
+                and timedelta(nameid).time() <= datetime.time(23, 59):
+            DayHour = content.findAll('td')[-1]
+            Animals = 'Час Крысы 🐁 с 23:00 до 01:00'
+        elif timedelta(nameid).time() >= datetime.time(21, 1) \
+                and timedelta(nameid).time() <= datetime.time(23, 00):
+            DayHour = content.findAll('td')[-2]
+            Animals = 'Час Свиньи 🐖 с 21:00 до 23:00'
+        elif timedelta(nameid).time() >= datetime.time(19, 1) \
+                and timedelta(nameid).time() <= datetime.time(21, 00):
+            DayHour = content.findAll('td')[-3]
+            Animals = 'Час Собаки 🐕 с 19:00 до 21:00'
+        elif timedelta(nameid).time() >= datetime.time(17, 1) \
+                and timedelta(nameid).time() <= datetime.time(19, 00):
+            DayHour = content.findAll('td')[-4]
+            Animals = 'Час Петуха 🐓 с 17:00 до 19:00'
+        elif timedelta(nameid).time() >= datetime.time(15, 1) \
+                and timedelta(nameid).time() <= datetime.time(17, 00):
+            DayHour = content.findAll('td')[-5]
+            Animals = 'Час Обезьяны 🐒 с 15:00 до 17:00'
+        elif timedelta(nameid).time() >= datetime.time(13, 1) \
+                and timedelta(nameid).time() <= datetime.time(15, 00):
+            DayHour = content.findAll('td')[-6]
+            Animals = 'Час Козы 🐐 с 13:00 до 15:00'
+        elif timedelta(nameid).time() >= datetime.time(11, 1) \
+                and timedelta(nameid).time() <= datetime.time(13, 00):
+            DayHour = content.findAll('td')[-7]
+            Animals = 'Час Лошади 🐎 с 11:00 до 13:00'
+        elif timedelta(nameid).time() >= datetime.time(9, 1) \
+                and timedelta(nameid).time() <= datetime.time(11, 00):
+            DayHour = content.findAll('td')[-8]
+            Animals = 'Час Змеи 🐍 с 09:00 до 11:00'
+        elif timedelta(nameid).time() >= datetime.time(7, 1) \
+                and timedelta(nameid).time() <= datetime.time(9, 00):
+            DayHour = content.findAll('td')[-9]
+            Animals = 'Час Дракона 🐉 с 07:00 до 09:00'
+        elif timedelta(nameid).time() >= datetime.time(5, 1) \
+                and timedelta(nameid).time() <= datetime.time(7, 00):
+            DayHour = content.findAll('td')[-10]
+            Animals = 'Час Кролика 🐇 с 05:00 до 07:00'
+        elif timedelta(nameid).time() >= datetime.time(3, 1) \
+                and timedelta(nameid).time() <= datetime.time(5, 00):
+            DayHour = content.findAll('td')[-11]
+            Animals = 'Час Тигра 🐅 с 03:00 до 05:00'
+        elif timedelta(nameid).time() >= datetime.time(1, 1) \
+                and timedelta(nameid).time() <= datetime.time(3, 00):
+            DayHour = content.findAll('td')[-12]
+            Animals = 'Час Быка 🐂 с 01:00 до 03:00'
+        elif timedelta(nameid).time() >= datetime.time(0, 00) \
+                and timedelta(nameid).time() <= datetime.time(1, 00):
+            DayHour = content.findAll('td')[-13]
+            Animals = 'Час Крысы 🐁 с 23:00 до 01:00'
+    except:
+        DayHour = ''
+
     try: # Пробую получить информацию
-        plus_minus = params.findAll('p', class_='PlusMinus')
+        plus_minus = DayHour.findAll('p', class_='PlusMinus')
     except:
         plus_minus = ''
     try:  # Пробую получить информацию
-        plus_minuso = params.find('p', class_='PlusMinus').text
+        plus_minuso = DayHour.find('p', class_='PlusMinus').text
     except:
         plus_minuso = ''
 
@@ -347,27 +497,25 @@ def daytimes(message):
     except:
         Negative2 = ''
     try:
-        Collision = params.find('p', class_='Collision').text
+        Collision = DayHour.find('p', class_='Collision').text
     except:
         Collision = ''
     try:
-        SymbolStars = params.findAll('p', class_='SymbolStars')[0].text
+        SymbolStars = DayHour.findAll('p', class_='SymbolStars')[0].text
     except:
         SymbolStars = ''
     try:
-        SymbolStars1 = params.findAll('p', class_='SymbolStars')[1].text
+        SymbolStars1 = DayHour.findAll('p', class_='SymbolStars')[1].text
     except:
         SymbolStars1 = ''
     try:
-        SymbolStars2 = params.findAll('p', class_='SymbolStars')[2].text
+        SymbolStars2 = DayHour.findAll('p', class_='SymbolStars')[2].text
     except:
         SymbolStars2 = ''
     try:
-        SymbolStars3 = params.findAll('p', class_='SymbolStars')[3].text
+        SymbolStars3 = DayHour.findAll('p', class_='SymbolStars')[3].text
     except:
         SymbolStars3 = ''
-
-
 
     if Positive: Positive = '\n ✅  ' + plus_minuso.strip()
     if Negative: Negative = '\n ⛔️  ' + plus_minuso.strip()
@@ -387,16 +535,16 @@ def daytimes(message):
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
 
     if not ours:
-        bot.edit_message_text(
-                         f'\n 🕒<b>  Сейчас {datetime.datetime.now().strftime("%H:%M")} -- {animails}</b>'
+        await message.answer(
+                         f'\n 🕒<b>  Сейчас {timedelta(nameid).strftime("%H:%M")} -- {Animals}</b>'
                          f'\n'
                          f'\n Нет информации на текущее время.'
                          f'\n Попробуйте посмотреть через час.'
-                         ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
+            ,reply_markup=markup, parse_mode='html')
     else:
-        bot.edit_message_text(
-                         f'\n 🕒<b>  Сейчас {datetime.datetime.now().strftime("%H:%M")} '
-                         f'\n{animails}</b>'
+        await message.answer(
+                         f'\n 🕒<b>  Сейчас {timedelta(nameid).strftime("%H:%M")} '
+                         f'\n{Animals}</b>'
                          f'\n--------------------------------------'
                          f' {f"{Positive}" if Positive else ""}'
                          f' {f"{Negative}" if Negative else ""}'
@@ -406,7 +554,131 @@ def daytimes(message):
                          f' {f"{SymbolStars1}" if SymbolStars1 else ""}'
                          f' {f"{SymbolStars2}" if SymbolStars2 else ""}'
                          f' {f"{SymbolStars3}" if SymbolStars3 else ""}'
-                         ,chat_id=waitfor.chat.id, message_id=waitfor.message_id, reply_markup=markup, parse_mode='html')
+                         ,reply_markup=markup, parse_mode='html')
 
 
-bot.polling(none_stop=True)
+# ========================================================================================================
+#                       Обработка  Запросов  Callback
+# ========================================================================================================
+@dp.callback_query_handler()
+async def callback(call):
+    global content_today, content_yesterday, content_tomorrow
+
+    if call.data == 'Ukr':
+        nameid = call.from_user.id
+        usertime = call.message.date
+        conn = sqlite3.connect('testdata.sql')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+        existing_record = cur.fetchone()
+        if existing_record:
+            # Обновляем запись в базе данных
+            cur.execute("UPDATE users SET utc = ? WHERE pass = ?", (1, nameid))
+            conn.commit()
+            # Получаем обновленную запись из базы данных
+            cur.execute("SELECT utc FROM users WHERE pass=?", (nameid,))
+            existing_record = cur.fetchone()
+        utc = existing_record[-1]
+        timedelta = usertime + datetime.timedelta(hours=utc)
+        cur.close()
+        conn.close()
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Украина UTC+2\n{timedelta}')
+
+    elif call.data == 'Pol':
+        nameid = call.from_user.id
+        usertime = call.message.date
+        conn = sqlite3.connect('testdata.sql')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+        existing_record = cur.fetchone()
+        if existing_record:
+            # Обновляем запись в базе данных
+            cur.execute("UPDATE users SET utc = ? WHERE pass = ?", (0, nameid))
+            conn.commit()
+            # Получаем обновленную запись из базы данных
+            cur.execute("SELECT utc FROM users WHERE pass=?", (nameid,))
+            existing_record = cur.fetchone()
+        utc = existing_record[-1]
+        timedelta = usertime + datetime.timedelta(hours=utc)
+        cur.close()
+        conn.close()
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Польша UTC+1\n{timedelta}')
+
+    elif call.data == 'Usa':
+        nameid = call.from_user.id
+        usertime = call.message.date
+        conn = sqlite3.connect('testdata.sql')
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
+        existing_record = cur.fetchone()
+        if existing_record:
+            # Обновляем запись в базе данных
+            cur.execute("UPDATE users SET utc = ? WHERE pass = ?", (-6, nameid))
+            conn.commit()
+            # Получаем обновленную запись из базы данных
+            cur.execute("SELECT utc FROM users WHERE pass=?", (nameid,))
+            existing_record = cur.fetchone()
+        utc = existing_record[-1]
+        timedelta = usertime + datetime.timedelta(hours=utc)
+        cur.close()
+        conn.close()
+        await bot.send_message(call.message.chat.id, f'Вы выбрали США UTC-4\n{timedelta}')
+
+    elif call.data == 'back':
+        markup = types.InlineKeyboardMarkup()
+        btn1 = types.InlineKeyboardButton('📅  Показать прогноз на сегодня', callback_data='today')
+        markup.row(btn1)
+        btn2 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
+        btn3 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
+        markup.row(btn2, btn3)
+        btn4 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
+        btn5 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
+        markup.row(btn4, btn5)
+        await bot.edit_message_text(text=   f'\n💡  <b>Меню</b>'
+                                            f'\n  ------------'
+                                            f'\n  Быстрое использование всех команд бота.'
+                                            f'\nПрогноз на день или на час по китайскому календарю.'
+                                            f' Показать лунный прогноз на день и узнать символ дня.'
+                                            f'\nВывод справочной информации.'
+            ,chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='html', reply_markup=markup)
+
+    elif call.data == 'help':
+        await help(call.message)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == 'today':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await day(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == 'moon':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await moonday(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == 'stars':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await stars(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == 'hour':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await daytimes(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+
+
+
+if __name__ == '__main__':
+    yesterday = get_yesterday()
+    MoonDay(yesterday)
+    today = get_today()
+    MoonDay(today)
+    tomorrow = get_tomorrow()
+    MoonDay(tomorrow)
+
+executor.start_polling(dp)

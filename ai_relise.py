@@ -1,5 +1,6 @@
 from aiogram import Bot, Dispatcher, executor, types
 import datetime
+import time
 import requests
 import sqlite3
 from bs4 import BeautifulSoup, Comment
@@ -11,11 +12,14 @@ dp = Dispatcher(bot)
 def get_now():
     return datetime.datetime.now()
 def get_today():
-    return datetime.date.today()
+    #return datetime.date.today()
+    return datetime.datetime.now()
 def get_yesterday():
-    return datetime.date.today() - datetime.timedelta(days=1)
+    #return datetime.date.today() - datetime.timedelta(days=1)
+    return datetime.datetime.now() - datetime.timedelta(days=1)
 def get_tomorrow():
-    return datetime.date.today() + datetime.timedelta(days=1)
+    #return datetime.date.today() + datetime.timedelta(days=1)
+    return datetime.datetime.now() + datetime.timedelta(days=1)
 
 scheduler = BackgroundScheduler()
 moon_today = ''
@@ -25,7 +29,7 @@ content_today = ''
 content_yesterday = ''
 content_tomorrow = ''
 
-#======== Вытягиваем значения лунного дня ============
+#======== Вытягиваем значений ============
 def MoonDay(data_url):
     global moon_today, moon_yesterday, moon_tomorrow, content_today, content_yesterday, content_tomorrow
     url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
@@ -35,27 +39,49 @@ def MoonDay(data_url):
                        .find_all(string=lambda text: isinstance(text, Comment))[1].split('DNone">')[1][:-13]
     except:
         moon = ''
+    time.sleep(3)
     try:# Вытягиваем на три дня со звёздами
-        content = soup.find('div', class_='Content').find('div', class_='firstInfo')
+        content = soup.find('div', class_='Content')
     except:
         content = ''
     # записываем данные в нужную переменную
-    if data_url == get_today():
+    if data_url.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'):
         moon_today = moon
         content_today = content
-    elif data_url == get_yesterday():
+        print(f"Выгрузка:  {' '.join(moon_today.split()[0:3])}  {get_now()}  {data_url}")
+        print(f"Выгрузка:  {content_today.find('h5', class_='CzjanChu').text}")
+    elif data_url.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'):
         moon_yesterday = moon
         content_yesterday = content
-    elif data_url == get_tomorrow():
+        print(f"Выгрузка:  {' '.join(moon_yesterday.split()[0:3])}  {get_now()}  {data_url}")
+        print(f"Выгрузка:  {content_yesterday.find('h5', class_='CzjanChu').text}")
+    elif data_url.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'):
         moon_tomorrow = moon
         content_tomorrow = content
-    print(f'Выгрузка данных прошла успешно {get_now()}')
-    return moon
+        print(f"Выгрузка:  {' '.join(moon_tomorrow.split()[0:3])}  {get_now()}  {data_url}")
+        print(f"Выгрузка:  {content_tomorrow.find('h5', class_='CzjanChu').text}")
+
+    # return moon
+def Printersimbols():
+    print('=======================================================')
+
+
 
 #======== Обработка Шедулеров ============
-scheduler.add_job(MoonDay, 'cron', hour=7, minute=0, second=20, args=[get_today()])
-scheduler.add_job(MoonDay, 'cron', hour=7, minute=0, second=30, args=[get_yesterday()])
-scheduler.add_job(MoonDay, 'cron', hour=7, minute=0, second=40, args=[get_tomorrow()])
+
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=30, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=40, args=[get_tomorrow()])
+scheduler.add_job(Printersimbols, 'cron', hour=0, minute=3, second=45)
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=30, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=40, args=[get_tomorrow()])
+scheduler.add_job(Printersimbols, 'cron', hour=0, minute=8, second=45)
+
+scheduler.add_job(MoonDay, 'cron', hour=12, minute=17, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=12, minute=17, second=25, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=12, minute=17, second=30, args=[get_tomorrow()])
+
 scheduler.start()
 
 @dp.message_handler(commands=['start'])
@@ -65,7 +91,7 @@ async def main(message):
     conn = sqlite3.connect('testdata.sql')                      # utc INTEGER
     cur = conn.cursor()
     cur.execute('CREATE TABLE IF NOT EXISTS users (id int auto_increment primary key, name varchar(50), '
-                'pass varchar(50), utc integer)')
+                'pass varchar(50), utc integer, alarm varchar(8))')
     cur.execute("SELECT * FROM users WHERE name=? AND pass=?", (name, nameid))
     existing_record = cur.fetchone()
     if existing_record:
@@ -97,7 +123,7 @@ async def maintest(message):
     cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
     existing_record = cur.fetchone()
     if existing_record:
-        utc = existing_record[-1]
+        utc = existing_record[-2]
         timedelta = usertime + datetime.timedelta(hours=utc)
     cur.close()
     conn.close()
@@ -117,10 +143,12 @@ async def allusers(message):
     cur.execute('SELECT * FROM users')
     users = cur.fetchall()
     info = ''
-    for el in users: info += f'Name: {el[1]}, ID:{el[2]}, utc:{el[3]}\n'
+    for el in users: info += f'Name: {el[1]}, ID:{el[2]}, utc:{el[3]}, alert:{el[4]}\n'
+    cur.execute("SELECT COUNT(*) FROM users")
+    count = cur.fetchone()[0]
     cur.close()
     conn.close()
-    await message.answer(info)
+    await message.answer(f'{count}\n{info}')
     # await bot.send_message(chat_id=237863350, text=info)
     # await bot.send_message(chat_id=678537666, text='Привет Татьяна. Как твои дела?')
 @dp.message_handler(commands=['time'])
@@ -132,7 +160,7 @@ async def send_time(message):
     cur.execute("SELECT * FROM users WHERE pass=?", (nameid,))
     existing_record = cur.fetchone()
     if existing_record:
-        utc = existing_record[-1]
+        utc = existing_record[-2]
         timedelta = usertime + datetime.timedelta(hours=utc)
     cur.close()
     conn.close()
@@ -143,8 +171,8 @@ async def send_time(message):
     if timedelta.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): testcontent = content_tomorrow  #test = MoonDay(get_tomorrow())
     if timedelta.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): testcontent = content_yesterday  #test = MoonDay(get_yesterday())
 
-    DSymbol = testcontent.find('h5', class_='CzjanChu').text
-    DSymbolo = testcontent.find('p', class_='CzjanChu').text
+    DSymbol = testcontent.find('div', class_='firstInfo').find('h5', class_='CzjanChu').text
+    DSymbolo = testcontent.find('div', class_='firstInfo').find('p', class_='CzjanChu').text
     # print(timedelta.strftime('%d-%m-%Y'))
     # print(get_today().strftime('%d-%m-%Y'))
     # print(get_tomorrow().strftime('%d-%m-%Y'))
@@ -186,19 +214,20 @@ async def callback(call):
                                          f'\n-----------'
                                          f'\n{moon_yesterday}'
                                          f'\n-----------'
-                                         f"\n{content_yesterday.find('h5', class_='CzjanChu').text}"
-                                         f"\n{content_yesterday.find('p', class_='CzjanChu').text}"
+                                         f"\n{content_yesterday.find('div', class_='firstInfo').find('h5', class_='CzjanChu').text}"
+                                         f"\n{content_yesterday.find('div', class_='firstInfo').find('p', class_='CzjanChu').text}"
                                     , chat_id=call.message.chat.id, message_id=call.message.message_id,
                                     reply_markup=markup)
     elif call.data == 'today':
-        if not moon_today:
+        if moon_today is None or content_today is None:
             moon_today = 'Not Responsing'
+            content_today = 'Not Responsing'
         await bot.edit_message_text(text=f'{get_today().strftime("%d-%m-%Y")}'
                                          f'\n-----------'
                                          f'\n{moon_today}'
                                          f'\n-----------'
-                                         f"\n{content_today.find('h5', class_='CzjanChu').text}"
-                                         f"\n{content_today.find('p', class_='CzjanChu').text}"
+                                         f"\n{content_today.find('div', class_='firstInfo').find('h5', class_='CzjanChu').text}"
+                                         f"\n{content_today.find('div', class_='firstInfo').find('p', class_='CzjanChu').text}"
                                     ,chat_id=call.message.chat.id, message_id=call.message.message_id,  reply_markup=markup)
     elif call.data == 'tomorrow':
         if not moon_tomorrow:
@@ -207,8 +236,8 @@ async def callback(call):
                                          f'\n-----------'
                                          f'\n{moon_tomorrow}'
                                          f'\n-----------'
-                                         f"\n{content_tomorrow.find('h5', class_='CzjanChu').text}"
-                                         f"\n{content_tomorrow.find('p', class_='CzjanChu').text}"
+                                         f"\n{content_tomorrow.find('div', class_='firstInfo').find('h5', class_='CzjanChu').text}"
+                                         f"\n{content_tomorrow.find('div', class_='firstInfo').find('p', class_='CzjanChu').text}"
                                     , chat_id=call.message.chat.id, message_id=call.message.message_id,
                                     reply_markup=markup)
     elif call.data == 'Ukr':

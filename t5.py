@@ -116,7 +116,7 @@ def Hours(data_url=datetime.datetime.now().strftime("%d-%m-%Y")):
 scheduler.add_job(Hours, 'cron', hour=8, minute=3)
 #scheduler.start()
 
-# ============== Обработка запросов по коммандам Бота =================================================================
+# ============== Обработка запросов по командам Бота =================================================================
 @bot.message_handler(commands=['start'])
 def main(message):
     name = message.from_user.first_name
