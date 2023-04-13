@@ -6,9 +6,43 @@ import sqlite3
 from bs4 import BeautifulSoup, Comment
 from apscheduler.schedulers.background import BackgroundScheduler
 import subprocess
+import os
+import sys
+import logging
+from logging.handlers import RotatingFileHandler
 
 bot = Bot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
 dp = Dispatcher(bot)
+
+# Создаем логгер и задаем уровень логирования
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+# Создаем обработчик для записи в файл
+file_handler = logging.FileHandler('log.txt', encoding='utf-8')
+file_handler.setLevel(logging.DEBUG)
+
+# Создаем форматер для сообщений
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# Добавляем обработчик в логгер
+logger.addHandler(file_handler)
+
+# # Инициализируем логирование
+# log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s')
+# log_file = datetime.datetime.now().strftime("log_%Y-%m-%d_%H-%M-%S.log")
+# my_handler = RotatingFileHandler(log_file, mode='a', maxBytes=5*1024*1024, backupCount=2, encoding=None, delay=0)
+# my_handler.setFormatter(log_formatter)
+# my_handler.setLevel(logging.INFO)
+# log = logging.getLogger('root')
+# log.setLevel(logging.INFO)
+# log.addHandler(my_handler)
+
+# if sys.platform == 'win32':
+#     restart_cmd = 'start /B cmd /c "python main.py"'
+# else:
+#     restart_cmd = 'sudo systemctl restart bot.service'
 
 def restart_bot():  # Перезапускаем бота
     subprocess.Popen(['python', 'main.py'])
@@ -26,6 +60,14 @@ content_today = ''
 content_yesterday = ''
 content_tomorrow = ''
 
+#======== Выгрузка прогноза по запросу ============
+def StarsDay(data_url):
+    print(f'Uploading content on the date - {data_url}')
+    url = f"https://www.mingli.ru/{data_url}"
+    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
+    content = soup.find('div', class_='Content')
+    return content
+
 #======== Вытягиваем значений ============
 def MoonDay(data_url):
     global content_today, content_yesterday, content_tomorrow
@@ -36,21 +78,38 @@ def MoonDay(data_url):
     except:
         content = ''
     # записываем данные в нужную переменную
-
     if data_url.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'):
         content_yesterday = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_yesterday.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+              f"{content_yesterday.find('h5', class_='CzjanChu').text}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        logger.debug(f"Loading content for yesterday - {data_url.strftime('%d-%m-%Y')}")
     elif data_url.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'):
         content_today = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_today.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+              f"{content_today.find('h5', class_='CzjanChu').text}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        logger.debug(f"Loading content for today - {data_url.strftime('%d-%m-%Y')}")
     elif data_url.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'):
         content_tomorrow = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  {content_tomorrow.find('h5', class_='CzjanChu').text}   {get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+              f"{content_tomorrow.find('h5', class_='CzjanChu').text}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        logger.debug(f"Loading content for tomorrow - {data_url.strftime('%d-%m-%Y')}")
+
     print(data_url.strftime('%d-%m-%Y'))
+    print(f" get_today - {get_today().strftime('%d-%m-%Y')}")
+    print(f" get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
+    print(f" get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
+    logger.debug('=========================================================================')
+    logger.debug(f"variable  data_url - {data_url.strftime('%d-%m-%Y')}")
+    logger.debug(f"variable  get_today - {get_today().strftime('%d-%m-%Y')}")
+    logger.debug(f"variable  get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
+    logger.debug(f"variable  get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
+    logger.debug('=========================================================================')
     # return moon
 def Printersimbols():
     print('=======================================================')
-
 
 
 #======== Обработка Шедулеров ============
@@ -60,10 +119,10 @@ scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=30, args=[get_today(
 scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=40, args=[get_tomorrow()])
 scheduler.add_job(Printersimbols, 'cron', hour=0, minute=0, second=45)
 
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=20, args=[get_yesterday()])
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=30, args=[get_today()])
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=1, second=40, args=[get_tomorrow()])
-scheduler.add_job(Printersimbols, 'cron', hour=0, minute=1, second=45)
+scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=20, args=[get_yesterday()])
+scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=30, args=[get_today()])
+scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=40, args=[get_tomorrow()])
+scheduler.add_job(Printersimbols, 'cron', hour=14, minute=15, second=45)
 
 # Запуск бота каждый день в 3 часа ночи
 scheduler.add_job(restart_bot, 'cron', hour=12, minute=42)
@@ -83,6 +142,28 @@ def timedelta(nameid):
     cur.close()
     conn.close()
     return timedelta
+
+# ============== Перезапускаем бота Бота ========================
+# @dp.message_handler(commands=['restart'])
+# async def restart_cmd_handler(message: types.Message):
+#     log.info("Restarting bot")
+#     await message.answer("Перезапуск бота...")
+#     os.system(restart_cmd)
+#     time.sleep(5)
+#     log.info("Bot restarted")
+#     await message.answer("Бот перезапущен.")
+
+# @dp.message_handler(commands=['restart'])
+# async def restart_bot(message: types.Message):
+#     await message.answer('Перезапускаюсь...')
+#     #os.system('sudo systemctl restart my_bot.service')
+#         # Для Windows
+#     os.system('taskkill /f /im python.exe')
+#     os.system('start /B cmd /c "python c:/Users/Pashka/PycharmProjects/OraculBot/main.py"')
+#
+#         # Для Linux
+#     # os.system('killall python3')
+#     # os.system('nohup python3 path/to/bot.py > /dev/null 2>&1 &')
 
 
 # ============== Обработка запросов по командам Бота ========================
@@ -297,7 +378,7 @@ async def stars(message, nameid=None):
     if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
     if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
     if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
-
+    content = content.find('div', class_='firstInfo')
     try:  # Разрушитель года или месяца (Надо подставить слово "Разрушитель")
         collision1 = content.find('h5', class_='red Collision').text  # .split()[-1]
     except:
@@ -670,6 +751,171 @@ async def callback(call):
         await daytimes(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
+#========= Вывод запроса на дату =========================
+@dp.message_handler(content_types=['text'])
+async def fordate(message):
+    waitfor = await bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
+    date_str = message.text.strip().lower()
+    try:
+        date_obj = datetime.datetime.strptime(date_str, '%d-%m-%Y')
+    except ValueError:
+        await bot.edit_message_text(text=f'Дата указана не верно',chat_id=waitfor.chat.id, message_id=waitfor.message_id)
+        return
+    content = StarsDay(date_str)  # Запрос на выгрузку контента согласно введённой дате
+
+    # moon = content.find('div', class_='firstInfo').find('div', class_='MoonDay') \
+    #            .find_all(string=lambda text: isinstance(text, Comment))[1].split('DNone">')[1][:-13]
+    try:
+        DSymbol = content.find('h5', class_='CzjanChu').text
+    except:
+        DSymbol = ''
+    try:
+        DSymbolo = content.find('p', class_='CzjanChu').text
+    except:
+        DSymbolo = ''
+    try:
+        DayPlus = content.find('p', class_='PlusMinus').text
+    except:
+        DayPlus = ''
+    try:
+        DayMinus = content.findAll('p', class_='PlusMinus')[1].text
+    except:
+        DayMinus = ''
+    try:
+        DMoon = content.find('div', class_='MoonDay').text
+    except:
+        DMoon = ''
+
+    # ================================== Звёзды ===========================================
+
+    content = content.find('div', class_='firstInfo')
+    try:  # Разрушитель года или месяца (Надо подставить слово "Разрушитель")
+        collision1 = content.find('h5', class_='red Collision').text  # .split()[-1]
+    except:
+        collision1 = ''
+    try:  # Описание для Разрушителя.
+        collision1o = content.findAll('p')[4].text
+    except:
+        collision1o = ''
+    try:  # Второй Разрушитель, если есть первый года или месяца (Надо подставить слово "Разрушитель")
+        collision2 = content.findAll('h5', class_='red Collision')[1].text  # .split()[-1]
+    except:
+        collision2 = ''
+    try:  # Описание для Разрушителя.
+        collision2o = content.findAll('p')[5].text
+    except:
+        collision2o = ''
+    try:  # Красное ША года
+        sha1 = content.find('h5', class_='red Sha').text
+    except:
+        sha1 = ''
+    try:  # Описание для ША
+        sha1o = content.find('p', class_='Sha').text
+    except:
+        sha1o = ''
+    try:  # Красное второе ША года
+        sha2 = content.findAll('h5', class_='red Sha')[1].text
+    except:
+        sha2 = ''
+    try:  # Описание для ША
+        sha2o = content.findAll('p', class_='Sha')[1].text
+    except:
+        sha2o = ''
+    try:  # Позитивный символ для Звезды
+        positive1 = content.find('h5', class_='positive SymbolStars').text  # оставить
+    except:
+        positive1 = ''
+    try:  # Описание позитивного символа
+        positive1o = content.find('p', class_='SymbolStars').text
+    except:
+        positive1o = ''
+    try:  # Позитивный второй символ для Звезды
+        positive2 = content.findAll('h5', class_='positive SymbolStars')[1].text
+    except:
+        positive2 = ''
+    try:  # Описание второго позитивного символа
+        positive2o = content.findAll('p', class_='SymbolStars')[2].text
+    except:
+        positive2o = ''
+    try:  # Символ MKD
+        symbolMKD = content.find('div', class_='SymbolStars MKD').text
+    except:
+        symbolMKD = ''
+    try:  # Негативный символ для Звезды
+        negative = content.find('h5', class_='negative SymbolStars').text
+    except:
+        negative = ''
+    try:  # Описание негативного символа
+        negativeo = content.findAll('p', class_='SymbolStars')[1].text
+    except:
+        negativeo = ''
+
+    stars = collision1.strip() + collision1o + collision2.strip() + collision2o + sha1 + sha1o.strip() + sha2 + sha2o.strip() \
+            + positive1 + positive1o + positive2 + positive2o + symbolMKD + negative + negativeo
+
+    if collision1: collision1 = '\n ⛔️ - ' + collision1.strip()
+    if collision1o: collision1o = '\n' + collision1o
+    if collision2: collision2 = '\n ⛔️ - ' + collision2.strip()
+    if collision2o: collision2o = '\n' + collision2o
+    if sha1: sha1 = '\n ⛔️ - ' + sha1.strip()
+    if sha1o: sha1o = '\n' + sha1o.strip()
+    if sha2: sha2 = '\n ⛔️ - ' + sha2
+    if sha2o: sha2o = '\n' + sha2o.strip()
+    if positive1: positive1 = '\n ✅ - ' + positive1
+    if positive1o: positive1o = '\n' + positive1o
+    if positive2: positive2 = '\n ✅ - ' + positive2
+    if positive2o: positive2o = '\n' + positive2o
+    if symbolMKD: symbolMKD = '\n 🀄️ - ' + symbolMKD
+    if negative: negative = '\n ⛔️ - ' + negative
+    if negativeo: negativeo = '\n' + negativeo
+
+    await bot.edit_message_text(text=f'\n 🗓  <b>Запрос на дату :   {date_str}</b>'
+                                     f'\n-------------------------------'
+                                     f'\n  - <b><u> {DSymbol}</u></b>'
+                                     f'\n   -  {DSymbolo}'
+                                     f'\n -------------------------------------'
+                                     f'\n  ✅ -  {DayPlus}'
+                                     f'\n  ⛔️ -  {DayMinus}'
+                                     f'\n -------------------------------------'
+                                     f'\n{str(DMoon).strip()}'
+                                , chat_id=waitfor.chat.id, message_id=waitfor.message_id, parse_mode='html')
+
+    if not stars:
+        await message.answer(f'\n ⭐️<b><u> Cимволы дня и летящие звёзды </u></b>'
+                             f'\n---------------------------------------'
+                             f'\n Сегодня нет информации'
+                             , parse_mode='html')
+    else:
+        await message.answer(
+            f'\n ⭐️<b> Cимволы дня и летящие звёзды </b>'
+            f'\n---------------------------------------'
+            f' {f"<b>{collision1}</b>" if collision1 else ""}'
+            f' {f"{collision1o}" if collision1 else ""}'
+            f' {f"<b>{collision2}</b>" if collision2 else ""}'
+            f' {f"{collision2o}" if collision2o and collision2 and collision2o != sha1o else ""}'
+            f' {f"<b>{sha1}</b>" if sha1 else ""}'
+            f' {f"{sha1o}" if sha1o and not sha2 else ""}'
+            f' {f"<b>{sha2}</b>" if sha2 else ""}'
+            f' {f"{sha2o}" if not sha1o and sha2o else ""}'
+            f' {f"{sha2o}" if sha2o and sha2 and sha2o == sha1o else ""}'
+            f' {f"<b>{positive1}</b>" if positive1 else ""}'
+            f' {f"{positive1o}" if positive1o and positive1 and positive1o[:-1] != negativeo else ""}'
+            f' {f"<b>{positive2}</b>" if positive2 else ""}'
+            f' {f"{positive2o}" if positive2o else ""}'
+            f' {f"<b>{symbolMKD}</b>" if symbolMKD else ""}'
+            f' {f"<b>{negative}</b>" if negative else ""}'
+            f' {f"{negativeo}" if negativeo else ""}'
+            f' {f"{collision1o}" if not negativeo and negative else ""}'
+            , parse_mode='html')
+
+
+
+
+
+
+
+
+
 
 
 
@@ -680,5 +926,7 @@ if __name__ == '__main__':
     MoonDay(today)
     tomorrow = get_tomorrow()
     MoonDay(tomorrow)
+    Printersimbols()
 
+file_handler.close()
 executor.start_polling(dp)
