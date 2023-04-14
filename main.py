@@ -71,6 +71,9 @@ def StarsDay(data_url):
 #======== Вытягиваем значений ============
 def MoonDay(data_url):
     global content_today, content_yesterday, content_tomorrow
+    if data_url == 1: data_url = get_yesterday()
+    if data_url == 2: data_url = get_today()
+    if data_url == 3: data_url = get_tomorrow()
     url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
     soup = BeautifulSoup(requests.get(url).text, 'html.parser')
     try:# Вытягиваем контент с сайта
@@ -114,18 +117,18 @@ def Printersimbols():
 
 #======== Обработка Шедулеров ============
 
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=20, args=[get_yesterday()])
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=30, args=[get_today()])
-scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=40, args=[get_tomorrow()])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=20, args=[1])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=30, args=[2])
+scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=40, args=[3])
 scheduler.add_job(Printersimbols, 'cron', hour=0, minute=0, second=45)
 
-scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=20, args=[get_yesterday()])
-scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=30, args=[get_today()])
-scheduler.add_job(MoonDay, 'cron', hour=14, minute=15, second=40, args=[get_tomorrow()])
-scheduler.add_job(Printersimbols, 'cron', hour=14, minute=15, second=45)
+scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=20, args=[1])
+scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=30, args=[2])
+scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=40, args=[3])
+scheduler.add_job(Printersimbols, 'cron', hour=9, minute=19, second=45)
 
 # Запуск бота каждый день в 3 часа ночи
-scheduler.add_job(restart_bot, 'cron', hour=12, minute=42)
+#scheduler.add_job(restart_bot, 'cron', hour=12, minute=42)
 
 scheduler.start()
 
@@ -907,15 +910,6 @@ async def fordate(message):
             f' {f"{negativeo}" if negativeo else ""}'
             f' {f"{collision1o}" if not negativeo and negative else ""}'
             , parse_mode='html')
-
-
-
-
-
-
-
-
-
 
 
 
