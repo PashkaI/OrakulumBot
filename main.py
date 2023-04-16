@@ -14,20 +14,20 @@ from logging.handlers import RotatingFileHandler
 bot = Bot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
 dp = Dispatcher(bot)
 
-# Создаем логгер и задаем уровень логирования
-logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-
-# Создаем обработчик для записи в файл
-file_handler = logging.FileHandler('log.txt', encoding='utf-8')
-file_handler.setLevel(logging.DEBUG)
-
-# Создаем форматер для сообщений
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
-# Добавляем обработчик в логгер
-logger.addHandler(file_handler)
+# # Создаем логгер и задаем уровень логирования
+# logger = logging.getLogger()
+# logger.setLevel(logging.DEBUG)
+#
+# # Создаем обработчик для записи в файл
+# file_handler = logging.FileHandler('log.txt', encoding='utf-8')
+# file_handler.setLevel(logging.DEBUG)
+#
+# # Создаем форматер для сообщений
+# formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+# file_handler.setFormatter(formatter)
+#
+# # Добавляем обработчик в логгер
+# logger.addHandler(file_handler)
 
 # # Инициализируем логирование
 # log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s')
@@ -44,8 +44,8 @@ logger.addHandler(file_handler)
 # else:
 #     restart_cmd = 'sudo systemctl restart bot.service'
 
-def restart_bot():  # Перезапускаем бота
-    subprocess.Popen(['python', 'main.py'])
+# def restart_bot():  # Перезапускаем бота
+#     subprocess.Popen(['python', 'main.py'])
 
 #  ============= Узнаём время на сегодня, завтра и вчера =============
 def get_today():
@@ -59,6 +59,9 @@ scheduler = BackgroundScheduler()
 content_today = ''
 content_yesterday = ''
 content_tomorrow = ''
+tibet_today = ''
+tibet_yesterday = ''
+tibet_tomorrow = ''
 
 #======== Выгрузка прогноза по запросу ============
 def StarsDay(data_url):
@@ -70,46 +73,62 @@ def StarsDay(data_url):
 
 #======== Вытягиваем значений ============
 def MoonDay(data_url):
-    global content_today, content_yesterday, content_tomorrow
+    global content_today, content_yesterday, content_tomorrow, tibet_today, tibet_yesterday, tibet_tomorrow
     if data_url == 1: data_url = get_yesterday()
     if data_url == 2: data_url = get_today()
     if data_url == 3: data_url = get_tomorrow()
     url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
+    urlt = f"https://tibetastromed.ru/docom.php?tdat={data_url.strftime('%m/%d/%Y')}&tipv=0&type=old&lang=ru"
     soup = BeautifulSoup(requests.get(url).text, 'html.parser')
+    soupt = BeautifulSoup(requests.get(urlt).text, 'html.parser')
     try:# Вытягиваем контент с сайта
         content = soup.find('div', class_='Content')
+        tibet = soupt.findAll('p')[1].text
     except:
         content = ''
+        tibet = ''
     # записываем данные в нужную переменную
     if data_url.strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'):
         content_yesterday = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+        tibet_yesterday = tibet
+        print(f"Выгрузка >mingli< {data_url.strftime('%d-%m-%Y')}:  "
               f"{content_yesterday.find('h5', class_='CzjanChu').text}   "
               f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
-        logger.debug(f"Loading content for yesterday - {data_url.strftime('%d-%m-%Y')}")
+        print(f"Выгрузка >tibetastromed< {data_url.strftime('%d-%m-%Y')}:  "
+              f"{' '.join(tibet_yesterday.split()[:3])}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        # logger.debug(f"Loading content for yesterday - {data_url.strftime('%d-%m-%Y')}")
     elif data_url.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'):
         content_today = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+        tibet_today = tibet
+        print(f"Выгрузка >mingli< {data_url.strftime('%d-%m-%Y')}:  "
               f"{content_today.find('h5', class_='CzjanChu').text}   "
               f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
-        logger.debug(f"Loading content for today - {data_url.strftime('%d-%m-%Y')}")
+        print(f"Выгрузка >tibetastromed< {data_url.strftime('%d-%m-%Y')}:  "
+              f"{' '.join(tibet_today.split()[:3])}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        # logger.debug(f"Loading content for today - {data_url.strftime('%d-%m-%Y')}")
     elif data_url.strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'):
         content_tomorrow = content
-        print(f"Выгрузка {data_url.strftime('%d-%m-%Y')}:  "
+        tibet_tomorrow = tibet
+        print(f"Выгрузка >mingli< {data_url.strftime('%d-%m-%Y')}:  "
               f"{content_tomorrow.find('h5', class_='CzjanChu').text}   "
               f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
-        logger.debug(f"Loading content for tomorrow - {data_url.strftime('%d-%m-%Y')}")
+        print(f"Выгрузка >tibetastromed< {data_url.strftime('%d-%m-%Y')}:  "
+              f"{' '.join(tibet_tomorrow.split()[:3])}   "
+              f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+        # logger.debug(f"Loading content for tomorrow - {data_url.strftime('%d-%m-%Y')}")
 
-    print(data_url.strftime('%d-%m-%Y'))
-    print(f" get_today - {get_today().strftime('%d-%m-%Y')}")
-    print(f" get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
-    print(f" get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
-    logger.debug('=========================================================================')
-    logger.debug(f"variable  data_url - {data_url.strftime('%d-%m-%Y')}")
-    logger.debug(f"variable  get_today - {get_today().strftime('%d-%m-%Y')}")
-    logger.debug(f"variable  get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
-    logger.debug(f"variable  get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
-    logger.debug('=========================================================================')
+    # print(data_url.strftime('%d-%m-%Y'))
+    # print(f" get_today - {get_today().strftime('%d-%m-%Y')}")
+    # print(f" get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
+    # print(f" get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
+    # logger.debug('=========================================================================')
+    # logger.debug(f"variable  data_url - {data_url.strftime('%d-%m-%Y')}")
+    # logger.debug(f"variable  get_today - {get_today().strftime('%d-%m-%Y')}")
+    # logger.debug(f"variable  get_yesterday - {get_yesterday().strftime('%d-%m-%Y')}")
+    # logger.debug(f"variable  get_tomorrow - {get_tomorrow().strftime('%d-%m-%Y')}")
+    # logger.debug('=========================================================================')
     # return moon
 def Printersimbols():
     print('=======================================================')
@@ -328,6 +347,36 @@ async def moonday(message, nameid=None):
     await message.answer(              f'\n  🌓 <b> Лунный прогноз на день </b>'
                                         f'\n  --------------------------------'
                                         f'\n   {moon}'
+                          ,reply_markup=markup, parse_mode='html')
+
+@dp.message_handler(commands=['tibet'])
+async def tibet(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = tibet_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = tibet_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = tibet_yesterday
+
+    start = content.find("праздники") + len("праздники")
+    end = content.find("Главная")
+    holiday = content[start:end]
+
+    start_index1 = content.find("Последствия")
+    end_index1 = content.find("Местонахождение")
+    result1 = content[start_index1:end_index1]
+
+    start_index2 = content.find("Последствия стрижки")
+    end_index2 = content.find("Последствия мытья")
+    result2 = content[start_index2:end_index2]
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
+    await message.answer(               f'\n  ⛩ 🙏 <b> Тибетские праздники </b>'
+                                        f'\n  --------------------------------'
+                                        f'\n   {holiday}'
+                                        f'\n  --------------------------------'
+                                        f'\n  ✂️  {result1}'
+                                        f'\n   {result2}'
                           ,reply_markup=markup, parse_mode='html')
 
 @dp.message_handler(commands=['day'])
@@ -922,5 +971,5 @@ if __name__ == '__main__':
     MoonDay(tomorrow)
     Printersimbols()
 
-file_handler.close()
+# file_handler.close()
 executor.start_polling(dp)

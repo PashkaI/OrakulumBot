@@ -167,6 +167,108 @@ def get_today():
 Теперь, чтобы получить сегодняшнюю дату, можно вызвать функцию get_today()
 today = get_today()
 ====================================================================================
+====================================================================================
+import datetime
+import requests
+from bs4 import BeautifulSoup, Comment
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
+
+scheduler = BackgroundScheduler()
+moon_today = ''
+moon_yesterday = ''
+moon_tomorrow = ''a
+content_today = ''
+content_yesterday = ''
+content_tomorrow = ''
+
+def get_today():
+    return datetime.datetime.now()
+
+def get_yesterday():
+    return datetime.datetime.now() - datetime.timedelta(days=1)
+
+def get_tomorrow():
+    return datetime.datetime.now() + datetime.timedelta(days=1)
+
+def MoonDay(data_url):
+    global content_today, content_yesterday, content_tomorrow
+    if data_url == 1: data_url = get_yesterday()
+    if data_url == 2: data_url = get_today()
+    if data_url == 3: data_url = get_tomorrow()
+    url1 = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
+    soup1 = BeautifulSoup(requests.get(url1).text, 'html.parser')
+    #url2 = f"https://tibetastromed.ru/docom.php?tdat={data_url.strftime('%m/%d/%Y')}&tipv=0&type=old&lang=ru"
+    url2 = f"https://tibetastromed.ru/docom.php?tdat=04/15/2023&tipv=0&type=old&lang=ru"
+    soup2 = BeautifulSoup(requests.get(url2).text, 'html.parser')
+    try:# Вытягиваем контент с сайта
+        content = soup1.find('div', class_='Content')
+        tibet = soup2.findAll('p')[1].text
+    except:
+        content = ''
+    print('=============================================')
+
+    start = tibet.find("Последствия")
+    end = tibet.find(".Последствия")
+    result = tibet[start:end]
+    start1 = tibet.find("Последствия мытья")
+    end1 = tibet.find(".Местонахождение")
+    result1 = tibet[start1:end1]
+
+
+
+    if "мытья" in result:
+        idx_sub_start = tibet.find("Последствия мытья")
+        idx_sub_end = tibet.find("Последствия стрижки")
+        print(tibet[idx_sub_start:idx_sub_end])
+    elif "поездки" or ".Поездка" not in result1:
+        print(result1)
+    # elif "стрижки" in result:
+    #     idx_sub_start = tibet.find("Последствия стрижки")
+    #     idx_sub_end = tibet.find("Последствия мытья")
+    #     print(tibet[idx_sub_start:idx_sub_end])
+
+
+
+    # if "поездки" not in result:
+    #     print(result)
+
+    #print(f'tibet --  {tibet}')
+    print('=============================================')
+    print(f'result --  {result}')
+    print(f'result1 --  {result1}')
+
+
+
+    # записываем данные в нужную переменную
+    # start = tibet.find("праздники") + len("праздники")
+    # end = tibet.find("Главная")
+    # result = tibet[start:end]
+    # print(result)
+    #
+    # start_index = tibet.find("Последствия мытья")
+    # end_index = tibet.find(".Местонахождение")
+    # result1 = tibet[start_index:end_index]
+    # print(result1)
+
+    # start_index2 = tibet.find("Последствия стрижки")
+    # end_index2 = tibet.find("Последствия мытья")
+    # result2 = tibet[start_index2:end_index2]
+    # print(result2)
+    #
+    # if data_url.strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'):
+    #     content_today = content
+    #     print(f"Выгрузка >mingli< {data_url.strftime('%d-%m-%Y')}:  "
+    #           f"{content_today.find('h5', class_='CzjanChu').text}   "
+    #           f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+    #     print(f"Выгрузка >tibetastromed< {data_url.strftime('%d-%m-%Y')}:  "
+    #           f"{' '.join(tibet.split()[:3])}   "
+    #           f"{get_today().strftime('%d-%m-%Y %H:%M:%S')}")
+
+
+today = get_today()
+MoonDay(today)
+
 
 
 
