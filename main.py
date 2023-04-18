@@ -240,14 +240,16 @@ async def allusers(message):
 @dp.message_handler(commands=['main'])
 async def main(message):
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('📅  Показать прогноз на сегодня', callback_data='today')
+    btn1 = types.InlineKeyboardButton('⛩  Показать Тибетский прогноз', callback_data='tibet')
     markup.row(btn1)
-    btn2 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
-    btn3 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
-    markup.row(btn2, btn3)
-    btn4 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
-    btn5 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
-    markup.row(btn4, btn5)
+    btn2 = types.InlineKeyboardButton('📅  Показать Китайский прогноз', callback_data='today')
+    markup.row(btn2)
+    btn3 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
+    btn4 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
+    markup.row(btn3, btn4)
+    btn5 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
+    btn6 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
+    markup.row(btn5, btn6)
     await message.answer(             f'\n💡  <b>Меню</b>'
                                       f'\n  ------------'
                                       f'\n  Быстрое использование всех команд бота.'
@@ -344,10 +346,10 @@ async def moonday(message, nameid=None):
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
-    await message.answer(              f'\n  🌓 <b> Лунный прогноз на день </b>'
+    await message.answer(               '  🌓   **Лунный прогноз на день** '
                                         f'\n  --------------------------------'
                                         f'\n   {moon}'
-                          ,reply_markup=markup, parse_mode='html')
+                          ,reply_markup=markup, parse_mode='Markdown')
 
 @dp.message_handler(commands=['tibet'])
 async def tibet(message, nameid=None):
@@ -361,22 +363,140 @@ async def tibet(message, nameid=None):
     end = content.find("Главная")
     holiday = content[start:end]
 
-    start_index1 = content.find("Последствия")
-    end_index1 = content.find("Местонахождение")
-    result1 = content[start_index1:end_index1]
+    if ".Последствия" in content: content = content.replace('.Последствия', ' Последствия')
+    if ".Поездка" in content: content = content.replace('.Поездка', ' Поездка')
+    if ".Последствия поездки:" in content: content = content.replace('.Последствия поездки:', ' Последствия поездки:')
 
-    start_index2 = content.find("Последствия стрижки")
-    end_index2 = content.find("Последствия мытья")
-    result2 = content[start_index2:end_index2]
+    start = content.find("Последствия стрижки")  # -- Стрижка --
+    end = content.find("Последствия мытья")
+    item1 = content[start:end]
+
+    start1 = content.find("Последствия стрижки")
+    end1 = content.find(".Местонахождение")
+    item2 = content[start1:end1]
+    item2 = item2.replace('.Поездка', ' Поездка')
+
+    start2 = content.find("Последствия мытья")  # -- Мытьё --
+    end2 = content.find("Последствия стрижки")
+    item3 = content[start2:end2]
+
+    start3 = content.find("Последствия мытья")
+    end3 = content.find(".Местонахождение")
+    item4 = content[start3:end3]
+    item4 = item4.replace('.Поездка', ' Поездка')
+
+    start4 = content.find("Последствия поездки:")  # -- Поездка --
+    end4 = content.find(".Местонахождение")
+    item5 = content[start4:end4]
+
+    start5 = content.find("Поездка")
+    end5 = content.find("Последствия стрижки")
+    item6 = content[start5:end5]
+
+    start6 = content.find("Поездка")
+    end6 = content.find("Последствия мытья")
+    item7 = content[start6:end6]
+
+    start7 = content.find("Поездка")
+    end7 = content.find(".Местонахождение")
+    item8 = content[start7:end7]
+
+    start8 = content.find("Последствия поездки:")
+    end8 = content.find("Последствия стрижки")
+    item9 = content[start8:end8]
+
+    start9 = content.find("Последствия поездки:")
+    end9 = content.find("Последствия мытья")
+    item10 = content[start9:end9]
+
+    result1 = ''
+    result2 = ''
+    result3 = ''
+    # ===============  Запрос для стрижки ======================
+    if "стрижки" in item1 and "Поездка" not in item1 and "поездки:" not in item1:
+        idx_sub_start = item1.find("Последствия стрижки")
+        idx_sub_end = item1.find("Последствия мытья")
+        result1 = item1[idx_sub_start:idx_sub_end]
+        # print(item1[idx_sub_start:idx_sub_end])
+        # print('1 Код успешно выполнился')
+    elif "Поездка" not in item2 and "поездки:" not in item2:
+        result1 = item2
+        # print(item2)
+        # print('2 Код успешно выполнился')
+    elif "Поездка" in item2:
+        idx_sub_start = item2.find("Последствия стрижки")
+        idx_sub_end = item2.find("Поездка")
+        result1 = item2[idx_sub_start:idx_sub_end]
+        # print(item2[idx_sub_start:idx_sub_end])
+        # print('3 Код успешно выполнился')
+    elif "поездки:" in item2:
+        idx_sub_start = item2.find("Последствия стрижки")
+        idx_sub_end = item2.find("Последствия поездки:")
+        result1 = item2[idx_sub_start:idx_sub_end]
+        # print(item2[idx_sub_start:idx_sub_end])
+        # print('4 Код успешно выполнился')
+
+    # ===============  Запрос для мытья ======================
+    if "мытья" in item3:
+        idx_sub_start = item3.find("Последствия мытья")
+        idx_sub_end = item3.find("Последствия стрижки")
+        result2 = item3[idx_sub_start:idx_sub_end]
+        # print(item3[idx_sub_start:idx_sub_end])
+        # print('1 Код успешно выполнился')
+    elif "Поездка" not in item4 and "поездки:" not in item4:
+        result2 = item4
+        # print(item4)
+        # print('2 Код успешно выполнился')
+    elif "Поездка" in item4:
+        idx_sub_start = item4.find("Последствия мытья")
+        idx_sub_end = item4.find("Поездка")
+        result2 = item4[idx_sub_start:idx_sub_end]
+        # print(item4[idx_sub_start:idx_sub_end])
+        # print('3 Код успешно выполнился')
+    elif "поездки:" in item4:
+        idx_sub_start = item4.find("Последствия мытья")
+        idx_sub_end = item4.find("Последствия поездки:")
+        result2 = item4[idx_sub_start:idx_sub_end]
+        # print(item4[idx_sub_start:idx_sub_end])
+        # print('4 Код успешно выполнился')
+
+    # ===============  Поездка ======================
+    if "Последствия поездки:" in item5 and "мытья" not in item5 and "стрижки" not in item5:
+        result3 = item5
+        # print(item5)
+        # print('1 Код успешно выполнился')
+    elif "Поездка" in item6 and "мытья" not in item6 and "стрижки" not in item6:
+        result3 = item6
+        # print(item6)
+        # print('2 Код успешно выполнился')
+    elif "Поездка" in item7 and "мытья" not in item7 and "стрижки" not in item7:
+        result3 = item7
+        # print(item7)
+        # print('3 Код успешно выполнился')
+    elif "Поездка" in item8 and "мытья" not in item8 and "стрижки" not in item8:
+        result3 = item8
+        # print(item8)
+        # print('4 Код успешно выполнился')
+    elif "Последствия поездки:" in item9 and "мытья" not in item9 and "стрижки" not in item9:
+        result3 = item9
+        # print(item9)
+        # print('5 Код успешно выполнился')
+    elif "Последствия поездки:" in item10 and "мытья" not in item10 and "стрижки" not in item10:
+        result3 = item10
+        # print(item10)
+        # print('6 Код успешно выполнился')
 
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
-    await message.answer(               f'\n  ⛩ 🙏 <b> Тибетские праздники </b>'
+    await message.answer(               f'\n  ⛩  <b> Тибетские прогнозы </b>'
                                         f'\n  --------------------------------'
-                                        f'\n   {holiday}'
+                                        f'\n  🙏  {holiday}'
                                         f'\n  --------------------------------'
                                         f'\n  ✂️  {result1}'
-                                        f'\n   {result2}'
+                                        f'\n  --------------------------------'
+                                        f'\n  🚿  {result2}'
+                                        f'\n  --------------------------------'
+                                        f'\n  🛺  {result3}'
                           ,reply_markup=markup, parse_mode='html')
 
 @dp.message_handler(commands=['day'])
@@ -759,14 +879,16 @@ async def callback(call):
 
     elif call.data == 'back':
         markup = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton('📅  Показать прогноз на сегодня', callback_data='today')
+        btn1 = types.InlineKeyboardButton('⛩  Показать Тибетский прогноз', callback_data='tibet')
         markup.row(btn1)
-        btn2 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
-        btn3 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
-        markup.row(btn2, btn3)
-        btn4 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
-        btn5 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
-        markup.row(btn4, btn5)
+        btn2 = types.InlineKeyboardButton('📅  Показать Китайский прогноз', callback_data='today')
+        markup.row(btn2)
+        btn3 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
+        btn4 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
+        markup.row(btn3, btn4)
+        btn5 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
+        btn6 = types.InlineKeyboardButton('❓ Помощь', callback_data='help')
+        markup.row(btn5, btn6)
         await bot.edit_message_text(text=   f'\n💡  <b>Меню</b>'
                                             f'\n  ------------'
                                             f'\n  Быстрое использование всех команд бота.'
@@ -783,6 +905,12 @@ async def callback(call):
         nameid = call.from_user.id
         message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
         await day(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+    elif call.data == 'tibet':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await tibet(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     elif call.data == 'moon':
