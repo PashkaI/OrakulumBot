@@ -29,24 +29,6 @@ dp = Dispatcher(bot)
 # # Добавляем обработчик в логгер
 # logger.addHandler(file_handler)
 
-# # Инициализируем логирование
-# log_formatter = logging.Formatter('%(asctime)s %(levelname)s %(funcName)s(%(lineno)d) %(message)s')
-# log_file = datetime.datetime.now().strftime("log_%Y-%m-%d_%H-%M-%S.log")
-# my_handler = RotatingFileHandler(log_file, mode='a', maxBytes=5*1024*1024, backupCount=2, encoding=None, delay=0)
-# my_handler.setFormatter(log_formatter)
-# my_handler.setLevel(logging.INFO)
-# log = logging.getLogger('root')
-# log.setLevel(logging.INFO)
-# log.addHandler(my_handler)
-
-# if sys.platform == 'win32':
-#     restart_cmd = 'start /B cmd /c "python main.py"'
-# else:
-#     restart_cmd = 'sudo systemctl restart bot.service'
-
-# def restart_bot():  # Перезапускаем бота
-#     subprocess.Popen(['python', 'main.py'])
-
 #  ============= Узнаём время на сегодня, завтра и вчера =============
 def get_today():
     return datetime.datetime.now()
@@ -65,10 +47,16 @@ tibet_tomorrow = ''
 
 #======== Выгрузка прогноза по запросу ============
 def StarsDay(data_url):
-    print(f'Uploading content on the date - {data_url}')
+    print(f'Uploading Chinese content on the date - {data_url}')
     url = f"https://www.mingli.ru/{data_url}"
     soup = BeautifulSoup(requests.get(url).text, 'html.parser')
     content = soup.find('div', class_='Content')
+    return content
+def TibetHolly(data_url):
+    print(f'Uploading Tibetian content on the date - {data_url}')
+    url = f"https://tibetastromed.ru/docom.php?tdat={data_url}&tipv=0&type=old&lang=ru"
+    soup = BeautifulSoup(requests.get(url).text, 'html.parser')
+    content = soup.findAll('p')[1].text
     return content
 
 #======== Вытягиваем значений ============
@@ -133,7 +121,6 @@ def MoonDay(data_url):
 def Printersimbols():
     print('=======================================================')
 
-
 #======== Обработка Шедулеров ============
 
 scheduler.add_job(MoonDay, 'cron', hour=0, minute=0, second=20, args=[1])
@@ -145,9 +132,6 @@ scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=20, args=[1])
 scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=30, args=[2])
 scheduler.add_job(MoonDay, 'cron', hour=9, minute=19, second=40, args=[3])
 scheduler.add_job(Printersimbols, 'cron', hour=9, minute=19, second=45)
-
-# Запуск бота каждый день в 3 часа ночи
-#scheduler.add_job(restart_bot, 'cron', hour=12, minute=42)
 
 scheduler.start()
 
@@ -165,29 +149,6 @@ def timedelta(nameid):
     conn.close()
     return timedelta
 
-# ============== Перезапускаем бота Бота ========================
-# @dp.message_handler(commands=['restart'])
-# async def restart_cmd_handler(message: types.Message):
-#     log.info("Restarting bot")
-#     await message.answer("Перезапуск бота...")
-#     os.system(restart_cmd)
-#     time.sleep(5)
-#     log.info("Bot restarted")
-#     await message.answer("Бот перезапущен.")
-
-# @dp.message_handler(commands=['restart'])
-# async def restart_bot(message: types.Message):
-#     await message.answer('Перезапускаюсь...')
-#     #os.system('sudo systemctl restart my_bot.service')
-#         # Для Windows
-#     os.system('taskkill /f /im python.exe')
-#     os.system('start /B cmd /c "python c:/Users/Pashka/PycharmProjects/OraculBot/main.py"')
-#
-#         # Для Linux
-#     # os.system('killall python3')
-#     # os.system('nohup python3 path/to/bot.py > /dev/null 2>&1 &')
-
-
 # ============== Обработка запросов по командам Бота ========================
 @dp.message_handler(commands=['start'])
 async def main(message):
@@ -202,23 +163,23 @@ async def main(message):
     if existing_record:
         await message.answer( "Приветствую тебя снова")
     else:
-        cur.execute("INSERT INTO users (name, pass) VALUES (?, ?)", (name, nameid))
+        cur.execute("INSERT INTO users (name, pass, utc) VALUES (?, ?, ?)", (name, nameid, 1))
         conn.commit()
         #bot.send_message(message.chat.id, "Запись успешно добавлена.")   .from_user.first_name
     cur.close()
     conn.close()
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('📍 Украина', callback_data='Ukr')
-    btn2 = types.InlineKeyboardButton('📍 Польша', callback_data='Pol')
-    btn3 = types.InlineKeyboardButton('️️📍 США', callback_data='Usa')
+    btn1 = types.InlineKeyboardButton('🇺🇦 Украина', callback_data='Ukr')
+    btn2 = types.InlineKeyboardButton('🇵🇱 Польша', callback_data='Pol')
+    btn3 = types.InlineKeyboardButton('️️🇺🇸 США', callback_data='Usa')
     markup.row(btn1, btn2, btn3)
-    await message.answer(               f'Привет, <b>{name}.</b> '
+    await message.answer(               f'  Приветствую, <b>{name}.</b> '
                                         f'\nДобро пожаловать в сообщество эзотериков :)'
-                                        f'\nНадеюсь что описание программы ты уже прочитал.'
-                                        f' Если нет, то воспользуйся командой <b> /help </b>'
+                                        f'\nНадеюсь что описание программы вы уже прочитали.'
+                                        f' Если нет, то воспользуйтесь командой <b> /help </b>'
                                         f'\nДля более точных прогнозов необходимо скорректировать'
-                                        f' время в программе -  для этого нажми '
-                                        f'на  <b>Страну</b> где ты есть'
+                                        f' время в программе -  для этого выберите '
+                                        f'нужную  📍 <b>Локацию</b> :'
                                         ,parse_mode='html', reply_markup=markup)
 
 @dp.message_handler(commands=['show_me_the_users'])
@@ -240,11 +201,11 @@ async def allusers(message):
 @dp.message_handler(commands=['main'])
 async def main(message):
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('⛩  Показать Тибетский прогноз', callback_data='tibet')
+    btn1 = types.InlineKeyboardButton('⛩  Тибетский прогноз на сегодня', callback_data='tibet')
     markup.row(btn1)
-    btn2 = types.InlineKeyboardButton('📅  Показать Китайский прогноз', callback_data='today')
+    btn2 = types.InlineKeyboardButton('📅  Китайский прогноз на сегодня', callback_data='today')
     markup.row(btn2)
-    btn3 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
+    btn3 = types.InlineKeyboardButton('🌓 Лунный день', callback_data='moon')
     btn4 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
     markup.row(btn3, btn4)
     btn5 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
@@ -253,22 +214,29 @@ async def main(message):
     await message.answer(             f'\n💡  <b>Меню</b>'
                                       f'\n  ------------'
                                       f'\n  Быстрое использование всех команд бота.'
-                                      f'\nПрогноз на день или на час по китайскому календарю.'
-                                      f' Показать лунный прогноз на день и узнать символ дня.'
-                                      f'\nВывод справочной информации.'
+                                      f'\n- Прогноз на день или на час по китайскому календарю.'
+                                      f'\n- Тибетский прогноз (праздники, стрижка, поездки)'
+                                      f'\n- Лунный прогноз на день'
+                                      f'\n- Что говорят звёзды на сегодня'
+                                      f'\n- Вывод справочной информации.'
                                     ,reply_markup=markup, parse_mode='html')
 
 @dp.message_handler(commands=['time'])
 async def maintest(message, nameid=None):
     if nameid is None:
         nameid = message.from_user.id
-    #nameid = message.from_user.id
+
+    diff_hours = (get_today() - timedelta(nameid)).total_seconds() / 3600
+    if diff_hours == 0: diff_hours = 'Польша 🇵🇱'
+    if diff_hours == -1: diff_hours = 'Украина  🇺🇦'
+    if diff_hours == 6: diff_hours = 'США 🇺🇸'
     await message.answer(
-        f'<b><u>Проверка времени :</u></b>'
-        f'\n-- Сейчас на сервере --'
-        f'\n  <b>{get_today().strftime("%d-%m-%Y  %H:%M")}</b>'
-        f'\n-- Твоё текущее время --'
+        f'<b><u>Проверка локации :</u></b>'
+        f'\nВ настройках была выбрана страна {diff_hours}'
+        f'\nВаша текущая дата и время :'
         f'\n  <b>{timedelta(nameid).strftime("%d-%m-%Y  %H:%M")}</b>'
+        f'\nВ любое время вы можете изменить свою локацию в настройках профиля /profile'
+        # f'\n{diff_hours}'
         ,parse_mode='html')
 
 
@@ -278,19 +246,20 @@ async def help(message):
     markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
     await message.answer(               f'\n🔹  <b>Основные команды</b>'
                                         f'\n'
-                                        f'\nГлавное меню <b> /main </b>'
-                                        f'\nПрогноз на день <b> /day </b>'
-                                        f'\nПрогноз на Час <b> /hour </b>'
-                                        f'\nЛунный прогноз на день <b> /moon </b>'
-                                        f'\nCимволы дня по звёздам<b> /stars </b>'
-                                        f'\nПрофиль пользователя <b> /profile </b>'
-                                        f'\nТекущая дата и время <b> /time </b>'
+                                        f'\n-Главное меню <b> /main </b>'
+                                        f'\n-Китайский прогноз на день <b> /day </b>'
+                                        f'\n-Китайский прогноз на Час <b> /hour </b>'
+                                        f'\n-Тибетский прогноз на день <b> /tibet </b>'
+                                        f'\n-Лунный прогноз на день <b> /moon </b>'
+                                        f'\n-Cимволы дня по звёздам<b> /stars </b>'
+                                        f'\n-Профиль пользователя <b> /profile </b>'
+                                        f'\n-Проверка времени и текущей локации <b> /time </b>'
                                         f'\n'
                                         f'\n🔹  <b>Что умеет этот бот:</b>'
                                         f'\n'
                                         f'\nРобот выводит прогноз на день или на час по китайскому календарю.'
+                                        f' Прогноз по тибетский праздникам, рекомендуемое время стрижки и поездок.'
                                         f' А так же можно посмотреть лунный прогноз на день и символ дня.'
-                                        f' В будущем возможно ещё сделаю вывод информации по Тибетским праздникам.'
                                         f'\n  --------------------------------'
                                         f'\n📅 Для того чтобы посмотреть прогноз на нужную вам дату, её необходимо'
                                         f' ввести в чате бота в формате DD-MM-YYYY (Например: 17-03-2023).'
@@ -311,24 +280,24 @@ async def profile(message):
     cur.execute("SELECT * FROM users WHERE name=? AND pass=?", (name, nameid))
     existing_record = cur.fetchone()
     if not existing_record:
-        cur.execute("INSERT INTO users (name, pass) VALUES (?, ?)", (name, nameid))
+        cur.execute("INSERT INTO users (name, pass, utc) VALUES (?, ?, ?)", (name, nameid, 1))
         conn.commit()
         #bot.send_message(message.chat.id, "Запись успешно добавлена.")   .from_user.first_name
     cur.close()
     conn.close()
     markup = types.InlineKeyboardMarkup()
-    btn1 = types.InlineKeyboardButton('📍 Украина', callback_data='Ukr')
-    btn2 = types.InlineKeyboardButton('📍 Польша', callback_data='Pol')
-    btn3 = types.InlineKeyboardButton('️️📍 США', callback_data='Usa')
+    btn1 = types.InlineKeyboardButton('🇺🇦 Украина', callback_data='Ukr')
+    btn2 = types.InlineKeyboardButton('🇵🇱 Польша', callback_data='Pol')
+    btn3 = types.InlineKeyboardButton('️️🇺🇸 США', callback_data='Usa')
     markup.row(btn1, btn2, btn3)
     btn4 = types.InlineKeyboardButton('↩️  Назад', callback_data='back')
     markup.row(btn4)
     await message.answer(               f'\n👤  <b>Профиль пользователя</b>'
                                         f'\n-------------------------------'
                                         f'\nВы зарегистрированы в системе под именем : {name}.'
-                                        f' Для точных прогнозов нужна информация для определения точной даты и времени,'
+                                        f' Для точных прогнозов нужна информация относительно даты и времени,'
                                         f' в зависимости от вашего местоположения бот скорректирует свои часы'
-                                        f'\n Выберите вашу <b>📍страну</b> из списка ниже : '
+                                        f'\n Выберите вашу 📍 <b>Локацию</b> из списка ниже : '
                                         # f'\nТекущая дата и время <b> /location </b>'
                                         f'\nПриятного пользования'
                           ,reply_markup=markup, parse_mode='html')
@@ -809,7 +778,62 @@ async def daytimes(message, nameid=None):
                          f' {f"{SymbolStars3}" if SymbolStars3 else ""}'
                          ,reply_markup=markup, parse_mode='html')
 
+@dp.message_handler(commands=['hours'])
+async def allhours(message, nameid=None):
+    if nameid is None:
+        nameid = message.from_user.id
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_today().strftime('%d-%m-%Y'): content = content_today
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_tomorrow().strftime('%d-%m-%Y'): content = content_tomorrow
+    if timedelta(nameid).strftime('%d-%m-%Y') == get_yesterday().strftime('%d-%m-%Y'): content = content_yesterday
 
+    items = []
+    for p in range(-13, 0):
+        try:
+            item1 = content.findAll('div', class_='HourTime')[p].text  # Это для час
+        except:
+            item1 = ''
+        # ============================= Тут описание =======================================
+        DayHour = content.findAll('td')[p]
+        try:  # Пробую получить информацию
+            plus_minus = DayHour.findAll('p', class_='PlusMinus')
+        except:
+            plus_minus = ''
+        try:  # Пробую получить информацию
+            plus_minuso = DayHour.find('p', class_='PlusMinus').text
+        except:
+            plus_minuso = ''
+
+        try:  # Описание позитивного часа
+            Positive = plus_minus[0].find('span', class_='IconPositive')
+        except:
+            Positive = ''
+        try:  # Описание негативного часа
+            Negative = plus_minus[0].find('span', class_='IconNegative')
+        except:
+            Negative = ''
+        try:  # Описание для негативного, если есть позитивный час
+            Negative2 = plus_minus[1].find('span', class_='IconNegative')
+        except:
+            Negative2 = ''
+
+        if Positive: Positive = '\n ✅  ' + plus_minuso.strip()
+        if Negative: Negative = '\n ⛔️  ' + plus_minuso.strip()
+        if Negative2: Negative2 = '\n ⛔️  ' + plus_minus[1].text.strip()
+
+        # items.append(f'{item1}\n{f"{Positive}" if Positive else ""}\n{f"{Negative}" if Negative else ""}\n{f"{Negative2}" if Negative2 else ""}')
+        items.append(f'{item1}\n{Positive}\n{Negative}\n{Negative2}')
+
+    result = [x.strip().replace('\xa0', ' ') for x in items]
+    result = [x.strip().replace('None', '') for x in result]
+    result = [x.strip().replace('\n', '') for x in result]
+    result = '\n'.join(result)
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('↩️  Назад', callback_data='back'))
+    await message.answer(               '  🧭   **Все двухчасовки на сегодня** '
+                                        f'\n  --------------------------------'
+                                        f'\n{result}'
+                          ,reply_markup=markup, parse_mode='Markdown')
 # ========================================================================================================
 #                       Обработка  Запросов  Callback
 # ========================================================================================================
@@ -835,7 +859,7 @@ async def callback(call):
         timedelta = usertime + datetime.timedelta(hours=utc)
         cur.close()
         conn.close()
-        await bot.send_message(call.message.chat.id, f'Вы выбрали Украина UTC+2\n{timedelta}')
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Украина 🇺🇦 UTC+2\n{timedelta}')
 
     elif call.data == 'Pol':
         nameid = call.from_user.id
@@ -855,7 +879,7 @@ async def callback(call):
         timedelta = usertime + datetime.timedelta(hours=utc)
         cur.close()
         conn.close()
-        await bot.send_message(call.message.chat.id, f'Вы выбрали Польша UTC+1\n{timedelta}')
+        await bot.send_message(call.message.chat.id, f'Вы выбрали Польша 🇵🇱 UTC+1\n{timedelta}')
 
     elif call.data == 'Usa':
         nameid = call.from_user.id
@@ -875,15 +899,15 @@ async def callback(call):
         timedelta = usertime + datetime.timedelta(hours=utc)
         cur.close()
         conn.close()
-        await bot.send_message(call.message.chat.id, f'Вы выбрали США UTC-4\n{timedelta}')
+        await bot.send_message(call.message.chat.id, f'Вы выбрали США 🇺🇸 UTC-4\n{timedelta}')
 
     elif call.data == 'back':
         markup = types.InlineKeyboardMarkup()
-        btn1 = types.InlineKeyboardButton('⛩  Показать Тибетский прогноз', callback_data='tibet')
+        btn1 = types.InlineKeyboardButton('⛩  Тибетский прогноз на сегодня', callback_data='tibet')
         markup.row(btn1)
-        btn2 = types.InlineKeyboardButton('📅  Показать Китайский прогноз', callback_data='today')
+        btn2 = types.InlineKeyboardButton('📅  Китайский прогноз на сегодня', callback_data='today')
         markup.row(btn2)
-        btn3 = types.InlineKeyboardButton('🌓 Лунный День', callback_data='moon')
+        btn3 = types.InlineKeyboardButton('🌓 Лунный день', callback_data='moon')
         btn4 = types.InlineKeyboardButton('️️⭐️  Звёзды', callback_data='stars')
         markup.row(btn3, btn4)
         btn5 = types.InlineKeyboardButton('🧭 Все часы', callback_data='hours')
@@ -892,9 +916,11 @@ async def callback(call):
         await bot.edit_message_text(text=   f'\n💡  <b>Меню</b>'
                                             f'\n  ------------'
                                             f'\n  Быстрое использование всех команд бота.'
-                                            f'\nПрогноз на день или на час по китайскому календарю.'
-                                            f' Показать лунный прогноз на день и узнать символ дня.'
-                                            f'\nВывод справочной информации.'
+                                            f'\n- Прогноз на день или на час по китайскому календарю.'
+                                            f'\n- Тибетский прогноз (праздники, стрижка, поездки)'
+                                            f'\n- Лунный прогноз на день'
+                                            f'\n- Что говорят звёзды на сегодня'
+                                            f'\n- Вывод справочной информации.'
             ,chat_id=call.message.chat.id, message_id=call.message.message_id, parse_mode='html', reply_markup=markup)
 
     elif call.data == 'help':
@@ -931,7 +957,17 @@ async def callback(call):
         await daytimes(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
-#========= Вывод запроса на дату =========================
+    elif call.data == 'hours':
+        nameid = call.from_user.id
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await allhours(message, nameid)
+        await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+
+# ========================================================================================================
+#                       Тут  Callback  Закончился  :))
+# ========================================================================================================
+
+#============================ Вывод запроса на дату =========================
 @dp.message_handler(content_types=['text'])
 async def fordate(message):
     waitfor = await bot.send_message(message.chat.id, 'Ожидайте загрузки ... ⌛️')
@@ -942,6 +978,7 @@ async def fordate(message):
         await bot.edit_message_text(text=f'Дата указана не верно',chat_id=waitfor.chat.id, message_id=waitfor.message_id)
         return
     content = StarsDay(date_str)  # Запрос на выгрузку контента согласно введённой дате
+    content_tibet = TibetHolly(date_str)  # Запрос на выгрузку контента согласно введённой дате
 
     # moon = content.find('div', class_='firstInfo').find('div', class_='MoonDay') \
     #            .find_all(string=lambda text: isinstance(text, Comment))[1].split('DNone">')[1][:-13]
@@ -1049,6 +1086,110 @@ async def fordate(message):
     if negative: negative = '\n ⛔️ - ' + negative
     if negativeo: negativeo = '\n' + negativeo
 
+    # ================================== Информация по Тибету ===========================================
+
+    start = content_tibet.find("праздники") + len("праздники")
+    end = content_tibet.find("Главная")
+    holiday = content_tibet[start:end]
+
+    if ".Последствия" in content_tibet: content_tibet = content_tibet.replace('.Последствия', ' Последствия')
+    if ".Поездка" in content_tibet: content_tibet = content_tibet.replace('.Поездка', ' Поездка')
+    if ".Последствия поездки:" in content_tibet: content_tibet = content_tibet.replace('.Последствия поездки:', ' Последствия поездки:')
+
+    start = content_tibet.find("Последствия стрижки")  # -- Стрижка --
+    end = content_tibet.find("Последствия мытья")
+    item1 = content_tibet[start:end]
+
+    start1 = content_tibet.find("Последствия стрижки")
+    end1 = content_tibet.find(".Местонахождение")
+    item2 = content_tibet[start1:end1]
+    item2 = item2.replace('.Поездка', ' Поездка')
+
+    start2 = content_tibet.find("Последствия мытья")  # -- Мытьё --
+    end2 = content_tibet.find("Последствия стрижки")
+    item3 = content_tibet[start2:end2]
+
+    start3 = content_tibet.find("Последствия мытья")
+    end3 = content_tibet.find(".Местонахождение")
+    item4 = content_tibet[start3:end3]
+    item4 = item4.replace('.Поездка', ' Поездка')
+
+    start4 = content_tibet.find("Последствия поездки:")  # -- Поездка --
+    end4 = content_tibet.find(".Местонахождение")
+    item5 = content_tibet[start4:end4]
+
+    start5 = content_tibet.find("Поездка")
+    end5 = content_tibet.find("Последствия стрижки")
+    item6 = content_tibet[start5:end5]
+
+    start6 = content_tibet.find("Поездка")
+    end6 = content_tibet.find("Последствия мытья")
+    item7 = content_tibet[start6:end6]
+
+    start7 = content_tibet.find("Поездка")
+    end7 = content_tibet.find(".Местонахождение")
+    item8 = content_tibet[start7:end7]
+
+    start8 = content_tibet.find("Последствия поездки:")
+    end8 = content_tibet.find("Последствия стрижки")
+    item9 = content_tibet[start8:end8]
+
+    start9 = content_tibet.find("Последствия поездки:")
+    end9 = content_tibet.find("Последствия мытья")
+    item10 = content_tibet[start9:end9]
+
+    result1 = ''
+    result2 = ''
+    result3 = ''
+    # ===============  Запрос для стрижки ======================
+    if "стрижки" in item1 and "Поездка" not in item1 and "поездки:" not in item1:
+        idx_sub_start = item1.find("Последствия стрижки")
+        idx_sub_end = item1.find("Последствия мытья")
+        result1 = item1[idx_sub_start:idx_sub_end]
+    elif "Поездка" not in item2 and "поездки:" not in item2:
+        result1 = item2
+    elif "Поездка" in item2:
+        idx_sub_start = item2.find("Последствия стрижки")
+        idx_sub_end = item2.find("Поездка")
+        result1 = item2[idx_sub_start:idx_sub_end]
+    elif "поездки:" in item2:
+        idx_sub_start = item2.find("Последствия стрижки")
+        idx_sub_end = item2.find("Последствия поездки:")
+        result1 = item2[idx_sub_start:idx_sub_end]
+
+    # ===============  Запрос для мытья ======================
+    if "мытья" in item3:
+        idx_sub_start = item3.find("Последствия мытья")
+        idx_sub_end = item3.find("Последствия стрижки")
+        result2 = item3[idx_sub_start:idx_sub_end]
+    elif "Поездка" not in item4 and "поездки:" not in item4:
+        result2 = item4
+    elif "Поездка" in item4:
+        idx_sub_start = item4.find("Последствия мытья")
+        idx_sub_end = item4.find("Поездка")
+        result2 = item4[idx_sub_start:idx_sub_end]
+    elif "поездки:" in item4:
+        idx_sub_start = item4.find("Последствия мытья")
+        idx_sub_end = item4.find("Последствия поездки:")
+        result2 = item4[idx_sub_start:idx_sub_end]
+
+
+    # ===============  Поездка ======================
+    if "Последствия поездки:" in item5 and "мытья" not in item5 and "стрижки" not in item5:
+        result3 = item5
+    elif "Поездка" in item6 and "мытья" not in item6 and "стрижки" not in item6:
+        result3 = item6
+    elif "Поездка" in item7 and "мытья" not in item7 and "стрижки" not in item7:
+        result3 = item7
+    elif "Поездка" in item8 and "мытья" not in item8 and "стрижки" not in item8:
+        result3 = item8
+    elif "Последствия поездки:" in item9 and "мытья" not in item9 and "стрижки" not in item9:
+        result3 = item9
+    elif "Последствия поездки:" in item10 and "мытья" not in item10 and "стрижки" not in item10:
+        result3 = item10
+
+    # ================================== Конец блока по Тибету ===========================================
+
     await bot.edit_message_text(text=f'\n 🗓  <b>Запрос на дату :   {date_str}</b>'
                                      f'\n-------------------------------'
                                      f'\n  - <b><u> {DSymbol}</u></b>'
@@ -1087,6 +1228,17 @@ async def fordate(message):
             f' {f"{negativeo}" if negativeo else ""}'
             f' {f"{collision1o}" if not negativeo and negative else ""}'
             , parse_mode='html')
+
+    await message.answer(f'\n  ⛩  <b> Тибетские прогнозы </b>'
+                         f'\n  --------------------------------'
+                         f'\n  🙏  {holiday}'
+                         f'\n  --------------------------------'
+                         f'\n  ✂️  {result1}'
+                         f'\n  --------------------------------'
+                         f'\n  🚿  {result2}'
+                         f'\n  --------------------------------'
+                         f'\n  🛺  {result3}'
+                         , parse_mode='html')
 
 
 
