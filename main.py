@@ -173,12 +173,12 @@ async def main(message):
     btn2 = types.InlineKeyboardButton('🇵🇱 Польша', callback_data='Pol')
     btn3 = types.InlineKeyboardButton('️️🇺🇸 США', callback_data='Usa')
     markup.row(btn1, btn2, btn3)
-    await message.answer(               f'  Приветствую, <b>{name}.</b> '
+    await message.answer(               f'  Приветствую, <b>{name}!</b> '
                                         f'\nДобро пожаловать в сообщество эзотериков :)'
-                                        f'\nНадеюсь что описание программы вы уже прочитали.'
-                                        f' Если нет, то воспользуйтесь командой <b> /help </b>'
+                                        f'\nНадеюсь, что описание программы вы уже прочитали.'
+                                        f' Если нет,- то воспользуйтесь командой <b> /help </b>'
                                         f'\nДля более точных прогнозов необходимо скорректировать'
-                                        f' время в программе -  для этого выберите '
+                                        f' время в программе. Для этого выберите '
                                         f'нужную  📍 <b>Локацию</b> :'
                                         ,parse_mode='html', reply_markup=markup)
 
@@ -258,7 +258,7 @@ async def help(message):
                                         f'\n🔹  <b>Что умеет этот бот:</b>'
                                         f'\n'
                                         f'\nРобот выводит прогноз на день или на час по китайскому календарю.'
-                                        f' Прогноз по тибетский праздникам, рекомендуемое время стрижки и поездок.'
+                                        f' Прогноз по тибетским праздникам, рекомендуемое время стрижки и поездок.'
                                         f' А так же можно посмотреть лунный прогноз на день и символ дня.'
                                         f'\n  --------------------------------'
                                         f'\n📅 Для того чтобы посмотреть прогноз на нужную вам дату, её необходимо'
@@ -743,10 +743,10 @@ async def daytimes(message, nameid=None):
     if Negative: Negative = '\n ⛔️  ' + plus_minuso.strip()
     if Negative2: Negative2 = '\n ⛔️  ' + plus_minus[1].text.strip()
     if Collision: Collision = '\n ➖  ' + Collision.strip()
-    if SymbolStars: SymbolStars = '\n -- ' + SymbolStars
-    if SymbolStars1: SymbolStars1 = '\n -- ' + SymbolStars1
-    if SymbolStars2: SymbolStars2 = '\n -- ' + SymbolStars2
-    if SymbolStars3: SymbolStars3 = '\n SymbolStars3 - ' + SymbolStars3
+    if SymbolStars: SymbolStars = '\n 🛟 ' + SymbolStars
+    if SymbolStars1: SymbolStars1 = '\n 🔮 ' + SymbolStars1
+    if SymbolStars2: SymbolStars2 = '\n 🧿 ' + SymbolStars2
+    if SymbolStars3: SymbolStars3 = '\n 🔑 ' + SymbolStars3
 
     Negative1 = str(Negative).strip()
     Positive1 = str(Positive).strip()
@@ -771,6 +771,7 @@ async def daytimes(message, nameid=None):
                          f' {f"{Positive}" if Positive else ""}'
                          f' {f"{Negative}" if Negative else ""}'
                          f' {f"{Negative2}" if Negative2 else ""}'
+                         f'\n<b>----------+++----------</b>'
                          f' {f"{Collision}" if Collision else ""}'
                          f' {f"{SymbolStars}" if SymbolStars else ""}'
                          f' {f"{SymbolStars1}" if SymbolStars1 else ""}'
@@ -834,6 +835,10 @@ async def allhours(message, nameid=None):
                                         f'\n  --------------------------------'
                                         f'\n{result}'
                           ,reply_markup=markup, parse_mode='Markdown')
+
+
+
+
 # ========================================================================================================
 #                       Обработка  Запросов  Callback
 # ========================================================================================================

@@ -189,6 +189,7 @@ def send_moon_to_user(chat_id):
 @bot.message_handler(commands=['mooner'])
 def mooner(message):
     send_moon_to_user(message.chat.id)
+
 scheduler.add_job(send_moon_to_user, 'cron', hour=8, minute=5, args=[237863350])
 
 # ========================================================================================================
