@@ -1,0 +1,16 @@
+version: "1"
+
+volumes:
+  db_vol:
+  
+services:
+  oraculum:
+    build:
+    volumes:
+     -db_vol:/db
+    ports:
+     - 80:80
+    restart: always
+    enviroment:
+     - TZ=Europe/Warsaw
+        

@@ -1,15 +1,12 @@
 from aiogram import Bot, Dispatcher, executor, types
 import datetime
-import time
 import requests
 import sqlite3
 from bs4 import BeautifulSoup, Comment
 from apscheduler.schedulers.background import BackgroundScheduler
-import subprocess
 import os
-import sys
 import logging
-from logging.handlers import RotatingFileHandler
+
 
 bot = Bot('6024265589:AAEAsVOB-0w-IaeoS3Ach9bZxLxlg9U7MOo')
 dp = Dispatcher(bot)
