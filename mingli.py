@@ -227,6 +227,7 @@ async def maintest(message, nameid=None):
         nameid = message.from_user.id
 
     diff_hours = (get_today() - timedelta(nameid)).total_seconds() / 3600
+    diff_hours = round(diff_hours)
     if diff_hours == 0: diff_hours = 'Польша 🇵🇱'
     if diff_hours == -1: diff_hours = 'Украина  🇺🇦'
     if diff_hours == 6: diff_hours = 'США 🇺🇸'
@@ -1249,14 +1250,14 @@ async def fordate(message):
 
 
 
-if __name__ == '__main__':
-    yesterday = get_yesterday()
-    MoonDay(yesterday)
-    today = get_today()
-    MoonDay(today)
-    tomorrow = get_tomorrow()
-    MoonDay(tomorrow)
-    Printersimbols()
+# if __name__ == '__main__':
+#     yesterday = get_yesterday()
+#     MoonDay(yesterday)
+#     today = get_today()
+#     MoonDay(today)
+#     tomorrow = get_tomorrow()
+#     MoonDay(tomorrow)
+#     Printersimbols()
 
 file_handler.close()
 executor.start_polling(dp)
