@@ -1,0 +1,10 @@
+services:
+  orakulumbot:
+    build: .
+    container_name: orakulumbot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./db:/app/db
+      - ./log.txt:/app/log.txt

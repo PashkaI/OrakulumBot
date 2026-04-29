@@ -1,129 +1,48 @@
 import asyncio
+
+from aiogram import Bot, Dispatcher, executor, types
+from aiogram.utils.exceptions import NetworkError, BotBlocked
+from aiogram.dispatcher.middlewares import BaseMiddleware
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from types import SimpleNamespace  # stdlib, не aiogram!
 import datetime
-import html
-import logging
-import os
 import requests
 import sqlite3
-
-from dotenv import load_dotenv
-
-from types import SimpleNamespace
-from logging.handlers import RotatingFileHandler
-
-from aiohttp.client_exceptions import ServerDisconnectedError
-from apscheduler.schedulers.background import BackgroundScheduler
 from bs4 import BeautifulSoup, Comment
-
-from aiogram import Bot, Dispatcher, BaseMiddleware, types
-from aiogram.filters import Command
-from aiogram.exceptions import TelegramNetworkError, TelegramForbiddenError
-from aiogram.types import (
-    ReplyKeyboardMarkup as TgReplyKeyboardMarkup,
-    KeyboardButton as TgKeyboardButton,
-    InlineKeyboardMarkup as TgInlineKeyboardMarkup,
-    InlineKeyboardButton as TgInlineKeyboardButton,
-)
-load_dotenv()
-
-NetworkError = TelegramNetworkError
-BotBlocked = TelegramForbiddenError
-
-
-def KeyboardButton(text, **kwargs):
-    return TgKeyboardButton(text=text, **kwargs)
-
-
-def InlineKeyboardButton(text, callback_data=None, **kwargs):
-    return TgInlineKeyboardButton(text=text, callback_data=callback_data, **kwargs)
-
-
-class ReplyKeyboardMarkup(TgReplyKeyboardMarkup):
-    def __init__(self, resize_keyboard=True, one_time_keyboard=False, **kwargs):
-        super().__init__(
-            keyboard=[],
-            resize_keyboard=resize_keyboard,
-            one_time_keyboard=one_time_keyboard,
-            **kwargs,
-        )
-
-    def add(self, *buttons):
-        self.keyboard.append(list(buttons))
-        return self
-
-    def row(self, *buttons):
-        self.keyboard.append(list(buttons))
-        return self
-
-
-class InlineKeyboardMarkup(TgInlineKeyboardMarkup):
-    def __init__(self, **kwargs):
-        super().__init__(inline_keyboard=[], **kwargs)
-
-    def add(self, *buttons):
-        self.inline_keyboard.append(list(buttons))
-        return self
-
-    def row(self, *buttons):
-        self.inline_keyboard.append(list(buttons))
-        return self
-
-
-types.InlineKeyboardMarkup = InlineKeyboardMarkup
-types.InlineKeyboardButton = InlineKeyboardButton
-types.ReplyKeyboardMarkup = ReplyKeyboardMarkup
-types.KeyboardButton = KeyboardButton
-
+from apscheduler.schedulers.background import BackgroundScheduler
+import os
+import logging
+import html
+from logging.handlers import RotatingFileHandler
+from aiohttp.client_exceptions import ServerDisconnectedError
+import asyncio
 
 def _loop_exception_handler(loop, context):
     exc = context.get("exception")
-    if isinstance(exc, (ServerDisconnectedError, TelegramNetworkError)):
+    # Тихо игнорируем сетевые обрывы long-poll при остановке
+    from aiogram.utils.exceptions import NetworkError as _NE
+    if isinstance(exc, (ServerDisconnectedError, _NE)):
         return
     loop.default_exception_handler(context)
 
+asyncio.get_event_loop().set_exception_handler(_loop_exception_handler)
 
+# === отключаем любой уже висящий консольный вывод у корневого логгера ===
 root = logging.getLogger()
 for h in list(root.handlers):
     root.removeHandler(h)
-root.setLevel(logging.CRITICAL)
+root.setLevel(logging.CRITICAL)  # корень максимально тихий
 
-
-HEADERS = {
+# повысить стабильность парсинга
+HEADERS =   {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
     "Accept-Language": "ru,en;q=0.9",
     "Referer": "https://www.google.com/",
-}
+            }
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
-if not TOKEN:
-    raise ValueError("Не найден TELEGRAM_BOT_TOKEN в .env")
-
-bot = Bot(TOKEN)
-
-dp = Dispatcher()
-
-
-def message_handler(*custom_filters, commands=None, content_types=None, **kwargs):
-    if commands:
-        return dp.message(Command(*commands))
-
-    if content_types and "text" in content_types:
-        return dp.message(lambda m: m.text is not None)
-
-    if custom_filters:
-        return dp.message(*custom_filters)
-
-    return dp.message()
-
-
-def callback_query_handler(*filters, **kwargs):
-    return dp.callback_query(*filters)
-
-
-dp.message_handler = message_handler
-dp.callback_query_handler = callback_query_handler
+bot = Bot('7336105246:AAE_SOrcq1_fWOAiM75EyhPVSTjSMXO3wr8')
+dp = Dispatcher(bot)
 
 current_user_name = "Unknown"
 
@@ -203,21 +122,22 @@ handler.addFilter(DropSchedulerNoise())
     писать в лог, кто именно делал запрос, без передачи имени вручную.
     """
 class CurrentUserMiddleware(BaseMiddleware):
-    async def __call__(self, handler, event, data):
-        if isinstance(event, types.Message):
-            set_current_user(event)
+    async def on_pre_process_message(self, message: types.Message, data: dict):
+        # фиксируем текущего пользователя для логов
+        set_current_user(message)
 
-        elif isinstance(event, types.CallbackQuery):
-            class _Msg:
-                from_user = event.from_user
+        # добавляем клавиатуру автоматически ко всем ответам
+        data["reply_markup"] = main_kb
 
-            set_current_user(_Msg)
-
-        return await handler(event, data)
+    async def on_pre_process_callback_query(self, call: types.CallbackQuery, data: dict):
+        # Тоже обновим имя для колбэков (кнопки)
+        class _Msg:
+            from_user = call.from_user
+        set_current_user(_Msg)
+        data["reply_markup"] = main_kb
 
 # Регистрируем сразу после создания dp
-dp.message.middleware(CurrentUserMiddleware())
-dp.callback_query.middleware(CurrentUserMiddleware())
+dp.middleware.setup(CurrentUserMiddleware())
 
 
 #  ============= Узнаём время на сегодня, завтра и вчера =============
@@ -241,30 +161,20 @@ def StarsDay(data_url):
     print(f'Uploading Chinese content on the date - {data_url}')
     logger.info("Chinese content | request=%s - %s", data_url, current_user_name)
     url = f"https://www.mingli.ru/{data_url}"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-    except requests.RequestException as e:
-        logger.error("StarsDay request FAILED | url=%s | error=%s", url, e)
-        return None
-
-    content = soup.select_one("div.Content")
+    soup = BeautifulSoup(requests.get(url, headers=HEADERS, timeout=20).text, 'html.parser')
+    #content = soup.find('div', class_='Content')
+    content = soup.select_one('div.Content')
     return content
 
 def TibetHolly(data_url):
     print(f'Uploading Tibetian content on the date - {data_url}')
     logger.info("Tibetian content | request=%s - %s", data_url, current_user_name)
     url = f"https://tibetastromed.ru/docom.php?tdat={data_url}&tipv=0&type=old&lang=ru"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        logger.error("TibetHolly request FAILED | url=%s | error=%s", url, e)
-        return ""
-    soup = BeautifulSoup(response.text, "html.parser")
-    paragraphs = soup.find_all("p")
-    return paragraphs[1].get_text(strip=True) if len(paragraphs) > 1 else ""
+    response = requests.get(url, headers=HEADERS, timeout=20)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    paragraphs = soup.find_all('p')
+    content = paragraphs[1].get_text(strip=True) if len(paragraphs) > 1 else ''
+    return content
 
 #======== Вытягиваем значения ============
 def MoonDay(data_url):
@@ -274,21 +184,8 @@ def MoonDay(data_url):
     if data_url == 3: data_url = get_tomorrow()
     url = f"https://www.mingli.ru/{data_url.strftime('%d-%m-%Y')}"
     urlt = f"https://tibetastromed.ru/docom.php?tdat={data_url.strftime('%m/%d/%Y')}&tipv=0&type=old&lang=ru"
-    try:
-        response = requests.get(url, headers=HEADERS, timeout=20)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-    except requests.RequestException as e:
-        logger.error("Mingli request FAILED | url=%s | error=%s", url, e)
-        soup = BeautifulSoup("", "html.parser")
-
-    try:
-        response_t = requests.get(urlt, headers=HEADERS, timeout=20)
-        response_t.raise_for_status()
-        soupt = BeautifulSoup(response_t.text, "html.parser")
-    except requests.RequestException as e:
-        logger.error("Tibet request FAILED | url=%s | error=%s", urlt, e)
-        soupt = BeautifulSoup("", "html.parser")
+    soup = BeautifulSoup(requests.get(url, headers=HEADERS, timeout=20).text, 'html.parser')
+    soupt = BeautifulSoup(requests.get(urlt, headers=HEADERS, timeout=20).text, 'html.parser')
 
     content = ''
     tibet = ''
@@ -370,16 +267,16 @@ async def auto_send_day_and_stars():
         logger.exception("Auto message failed: %s", e)
 
 # ---- синхронная обёртка для scheduler (кидает корутину в loop aiogram) ----
-_loop = None
+_loop = asyncio.get_event_loop()
 
 def run_auto_job():
-    if _loop and _loop.is_running():
-        asyncio.run_coroutine_threadsafe(auto_send_day_and_stars(), _loop)
+    asyncio.run_coroutine_threadsafe(auto_send_day_and_stars(), _loop)
 
 # ... твои остальные add_job ...
 # пример: каждый день в 21:00
 scheduler.add_job(run_auto_job, 'cron', hour=10, minute=13, second=0)
 
+scheduler.start()
 
 # =================== Определяем время пользователя ======================
 def timedelta(nameid):
@@ -428,10 +325,6 @@ async def send_main_menu(message):
         parse_mode='html',
         reply_markup=build_inline_main_menu()
     )
-@dp.message(Command("ping"))
-async def ping(message: types.Message):
-    print("PING RECEIVED")
-    await message.answer("pong")
 
 @dp.message_handler(commands=['start'])
 async def start_cmd(message: types.Message):
@@ -1122,9 +1015,6 @@ async def allhours(message, nameid=None):
 async def callback(call):
     global content_today, content_yesterday, content_tomorrow
 
-    await call.answer()
-    print("CALLBACK:", call.data)
-
     if call.data == 'Ukr':
         db_path = os.path.join("db", "userdata.sql")
         nameid = call.from_user.id
@@ -1216,33 +1106,38 @@ async def callback(call):
 
     elif call.data == 'today':
         nameid = call.from_user.id
-        await day(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await day(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-
 
     elif call.data == 'tibet':
         nameid = call.from_user.id
-        await tibet(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await tibet(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     elif call.data == 'moon':
         nameid = call.from_user.id
-        await moonday(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await moonday(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     elif call.data == 'stars':
         nameid = call.from_user.id
-        await stars(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await stars(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     elif call.data == 'hour':
         nameid = call.from_user.id
-        await daytimes(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await daytimes(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
     elif call.data == 'hours':
         nameid = call.from_user.id
-        await allhours(call.message, nameid)
+        message = types.Message(chat=types.Chat(id=call.message.chat.id), message_id=call.message.message_id)
+        await allhours(message, nameid)
         await bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
 
 # ========================================================================================================
@@ -1259,15 +1154,7 @@ async def fordate(message):
     except ValueError:
         await bot.edit_message_text(text=f'Дата указана не верно',chat_id=waitfor.chat.id, message_id=waitfor.message_id)
         return
-    content = StarsDay(date_str)
-    if content is None:
-        await bot.edit_message_text(
-            text="Не удалось загрузить данные с mingli.ru. Попробуйте позже.",
-            chat_id=waitfor.chat.id,
-            message_id=waitfor.message_id,
-        )
-        return
-    # Запрос на выгрузку контента согласно введённой дате
+    content = StarsDay(date_str)  # Запрос на выгрузку контента согласно введённой дате
     content_tibet = TibetHolly(date_str)  # Запрос на выгрузку контента согласно введённой дате
 
     try:
@@ -1530,46 +1417,41 @@ async def fordate(message):
 
 
 
-async def main():
-    global _loop
-
-    _loop = asyncio.get_running_loop()
-    _loop.set_exception_handler(_loop_exception_handler)
-
-    print("BOT STARTING")
-
-    logger.info("Warmup started")
-    for day_value in (get_yesterday(), get_today(), get_tomorrow()):
+if __name__ == '__main__':
+    try:
+        # если используешь APScheduler — запускаем (иначе можно убрать строку)
         try:
-            MoonDay(day_value)
-        except Exception as e:
-            logger.exception("Warmup MoonDay failed: %s", e)
-    Printersimbols()
-    logger.info("Warmup finished")
+            scheduler.start()
+        except Exception:
+            pass
 
-    try:
-        scheduler.start()
-    except Exception:
-        logger.exception("Scheduler start failed")
+        # Тихий прогрев: вчера/сегодня/завтра + символы
+        logger.info("Warmup started")
+        yesterday = get_yesterday();  MoonDay(yesterday)
+        today     = get_today();      MoonDay(today)
+        tomorrow  = get_tomorrow();   MoonDay(tomorrow)
+        Printersimbols()
+        logger.info("Warmup finished")
 
-    logger.info("Bot polling started")
-    print("BOT POLLING STARTED")
+        logger.info("Bot polling started")
+        # Чтобы не тянуть старую очередь апдейтов:
+        executor.start_polling(dp, skip_updates=True)
 
-    try:
-        await dp.start_polling(bot)
-    except (TelegramNetworkError, ServerDisconnectedError) as e:
+    except KeyboardInterrupt:
+        # Нормальная остановка через Ctrl+C — без стека
+        logger.info("Shutdown requested (KeyboardInterrupt)")
+
+
+    except (NetworkError, ServerDisconnectedError) as e:
+        # При остановке IDE/интернета aiohttp может кинуть ServerDisconnectedError.
+        # Ловим и не засоряем консоль трейcбеком.
         logger.warning("Polling interrupted by network error: %s", e)
+
     finally:
         try:
             scheduler.shutdown(wait=False)
         except Exception:
             pass
-
-        await bot.session.close()
         logger.info("Bot stopped cleanly")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 

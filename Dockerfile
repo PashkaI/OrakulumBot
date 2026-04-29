@@ -1,11 +1,12 @@
-FROM python:3.11
+FROM python:3.12-slim
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY main.py .
+COPY log.txt .
+COPY db ./db
 
-EXPOSE 80
 CMD ["python", "main.py"]

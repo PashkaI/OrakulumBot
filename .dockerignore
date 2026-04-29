@@ -1,0 +1,22 @@
+# Игнорируем всё
+*
+
+# Разрешаем только нужные файлы
+!main.py
+!requirements.txt
+!log.txt
+!db/
+!db/**
+
+# Явно запрещаем .env (на всякий случай)
+.env
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
