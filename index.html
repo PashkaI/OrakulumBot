@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Мой UTC</title>
+</head>
+<body>
+  <h2>Ваше UTC-смещение:</h2>
+  <h1 id="utc"></h1>
+
+  <script>
+    const offsetMinutes = -new Date().getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? "+" : "-";
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = Math.floor(absMinutes / 60);
+    const minutes = absMinutes % 60;
+
+    const value = minutes === 0
+      ? `UTC${sign}${hours}`
+      : `UTC${sign}${hours}.${minutes === 30 ? "5" : minutes}`;
+
+    document.getElementById("utc").textContent = value;
+  </script>
+</body>
+</html>
